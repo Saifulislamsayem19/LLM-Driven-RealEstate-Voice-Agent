@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeHelper - Real Estate Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Add syntax highlighting for code blocks -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fas fa-home"></i>
+                </div>
+                <h1>HomeHelper</h1>
+            </div>
+            <div class="sidebar-content">
+                <div class="stats-container">
+                    <h3><i class="fas fa-chart-line"></i> Property Stats</h3>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <i class="fas fa-tag"></i>
+                            <span class="stat-label">Average Price</span>
+                        </div>
+                        <span id="avg-price" class="stat-value">Loading...</span>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <i class="fas fa-ruler-combined"></i>
+                            <span class="stat-label">Average Sqft</span>
+                        </div>
+                        <span id="avg-sqft" class="stat-value">Loading...</span>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <i class="fas fa-building"></i>
+                            <span class="stat-label">Total Properties</span>
+                        </div>
+                        <span id="total-properties" class="stat-value">Loading...</span>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span class="stat-label">Price Range</span>
+                        </div>
+                        <span id="price-range" class="stat-value">Loading...</span>
+                    </div>
+                </div>
+                <div class="suggestion-container">
+                    <h3><i class="fas fa-lightbulb"></i> Explore Questions</h3>
+                    <div class="suggestion-list">
+                        <button class="suggestion-btn" data-query="What's the average price of properties?">
+                            <i class="fas fa-search-dollar"></i> Average prices
+                        </button>
+                        <button class="suggestion-btn" data-query="Show me waterfront properties">
+                            <i class="fas fa-water"></i> Waterfront homes
+                        </button>
+                        <button class="suggestion-btn" data-query="Which neighborhoods have the most expensive homes?">
+                            <i class="fas fa-map-marker-alt"></i> Top neighborhoods
+                        </button>
+                        <button class="suggestion-btn" data-query="What are properties with 3 bedrooms and 2 bathrooms?">
+                            <i class="fas fa-bed"></i> 3bd/2ba homes
+                        </button>
+                        <button class="suggestion-btn" data-query="What's the price per square foot in different areas?">
+                            <i class="fas fa-calculator"></i> Price per sqft
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <span><i class="fas fa-robot"></i> Powered by LangGraph & OpenAI</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="header-left">
+                    <h2>Real Estate Assistant</h2>
+                    <span class="status-badge" id="status-badge">
+                        <i class="fas fa-circle"></i> 
+                        <span id="status-text">Connecting...</span>
+                    </span>
+                </div>
+                <div class="chat-tools">
+                    <button id="clear-chat" class="clear-btn">
+                        <i class="fas fa-trash"></i> Clear Chat
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div id="chat-messages" class="messages">
+                    <div class="message assistant">
+                        <div class="message-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="bot-name">HomeHelper</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-body">
+                                <p>Hello! I'm HomeHelper, your real estate assistant. Ask me anything about the properties in our database - prices, neighborhoods, features, investment metrics, and more!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input type="text" id="user-input" placeholder="Ask me about real estate properties...">
+                    <button id="voice-btn" class="voice-btn" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button id="send-btn" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="voice-controls">
+                    <button id="tts-toggle" class="tts-toggle active" title="Toggle Text-to-Speech">
+                        <i class="fas fa-volume-up"></i>
+                        <span>Auto-Read Responses</span>
+                    </button>
+                    <div id="audio-player-container" class="audio-player-container hidden">
+                        <button id="play-pause-btn" class="play-pause-btn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <div class="progress-container">
+                            <div id="audio-progress" class="audio-progress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
