@@ -2,7 +2,7 @@
 
 An advanced AI assistant framework leveraging LangGraph for workflow orchestration, powerful Large Language Models (LLMs), and Retrieval-Augmented Generation (RAG) for context-aware responses, combined with seamless Speech-to-Text (STT) and Text-to-Speech (TTS) features.
 
-![image](https://github.com/user-attachments/assets/ed907a3f-1cd1-43fd-bd76-d4d034521092)
+![image](https://github.com/user-attachments/assets/579204fa-0b9f-411e-93d6-2ba7c2efc78e)
 
 
 ## Overview
