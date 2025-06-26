@@ -5,12 +5,12 @@ from flask import Blueprint, request, jsonify
 
 audio_bp = Blueprint("audio", __name__)
 
-# Load API key securely from environment variable
+# Load API key from environment variable
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable not set")
 
-# Initialize the OpenAI client once (replace with your actual API key)
+# Initialize the OpenAI client
 client = openai.OpenAI(api_key=api_key)
 
 @audio_bp.route("/transcribe", methods=["POST"])
@@ -42,12 +42,11 @@ def text_to_speech():
         response = client.audio.speech.create(
             model="tts-1",
             input=text,
-            voice="alloy"  # Changed from "en_us_female_friendly" to valid OpenAI voice
+            voice="alloy"
         )
         
         # Read the audio content and encode to base64
-        import base64
-        audio_content = response.content  # This is the raw audio bytes
+        audio_content = response.content 
         audio_base64 = base64.b64encode(audio_content).decode('utf-8')
         
         return jsonify({"audio": audio_base64})
