@@ -2,7 +2,6 @@ import os
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from dotenv import load_dotenv
 import pandas as pd
-
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
 from data_manager import USER_REQUIREMENTS_FILE
 from audio import audio_bp
