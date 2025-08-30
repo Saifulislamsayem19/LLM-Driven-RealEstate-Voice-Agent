@@ -54,7 +54,7 @@ This project provides a robust platform to build intelligent conversational agen
 - **Real-time Audio Processing**: WebRTC-compatible audio streaming
 
 ### Backend Infrastructure
-- **Flask**: Lightweight web framework with RESTful APIs
+- **FastAPI**: Lightweight web framework with RESTful APIs
 - **Pandas**: Data manipulation and analysis
 - **NumPy**: Numerical computing for property calculations
 - **Vector Embeddings**: Semantic representation of property data
@@ -161,7 +161,6 @@ The system uses a sophisticated state graph to manage conversation flow:
 ### Environment Variables
 ```bash
 OPENAI_API_KEY=your_openai_api_key
-FLASK_ENV=development
 VECTOR_DB_PATH=./vector_store
 USER_DATA_PATH=./user_requirements.csv
 ```
