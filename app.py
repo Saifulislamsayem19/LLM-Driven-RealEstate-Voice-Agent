@@ -1,18 +1,39 @@
 import os
-from flask import Flask, request, jsonify, render_template, send_from_directory
-from dotenv import load_dotenv
 import pandas as pd
-
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from audio import audio_router
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
 from data_manager import USER_REQUIREMENTS_FILE
-from audio import audio_bp
 
 load_dotenv()
 
-app = Flask(__name__)
-app.register_blueprint(audio_bp, url_prefix="/audio")
+# Initialize FastAPI app
+app = FastAPI(title="Real Estate Assistant API")
 
-# Initialize the agent instance globally
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include audio router
+app.include_router(audio_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Initialize templates
+templates = Jinja2Templates(directory="templates")
+
+# Initialize the agent instance
 agent = RealEstateAgent()
 
 def init_chatbot():
@@ -26,22 +47,18 @@ def init_chatbot():
     print("Agent initialization complete.")
     return True
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-@app.route("/static/<path:path>")
-def send_static(path):
-    return send_from_directory("static", path)
-
-@app.route("/ask", methods=["POST"])
-def ask():
-    data = request.get_json()
+@app.post("/ask")
+async def ask(request: Request):
+    data = await request.json()
     query = data.get("query", "")
     chat_history = data.get("chat_history", [])
 
     if not query:
-        return jsonify({"answer": "Welcome to our real estate assistant! How can I help you today?"})
+        return JSONResponse(content={"answer": "Welcome to our real estate assistant! How can I help you today?"})
 
     try:
         result = process_query(agent, query, chat_history)
@@ -58,28 +75,31 @@ def ask():
         if "similar_properties" in converted_result:
             response_data["similar_properties"] = converted_result["similar_properties"]
 
-        return jsonify(response_data)
+        return JSONResponse(content=response_data)
 
     except Exception as e:
         print(f"/ask error: {e}")
-        return jsonify({
-            "answer": "I'm having trouble processing your request. Please try again later.",
-            "system_state": {"type": "system", "error": str(e)}
-        }), 500
+        return JSONResponse(
+            content={
+                "answer": "I'm having trouble processing your request. Please try again later.",
+                "system_state": {"type": "system", "error": str(e)}
+            },
+            status_code=500
+        )
 
-@app.route("/requirements", methods=["GET"])
-def view_requirements():
+@app.get("/requirements")
+async def view_requirements():
     """Admin endpoint to view saved user requirements"""
     if not os.path.exists(USER_REQUIREMENTS_FILE):
-        return jsonify({"error": "No requirements data available"})
+        raise HTTPException(status_code=404, detail="No requirements data available")
     try:
         df_requirements = pd.read_csv(USER_REQUIREMENTS_FILE)
-        return jsonify({"requirements": df_requirements.to_dict(orient="records")})
+        return {"requirements": df_requirements.to_dict(orient="records")}
     except Exception as e:
-        return jsonify({"error": f"Error reading requirements data: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Error reading requirements data: {str(e)}")
 
-@app.route("/property_summary", methods=["GET"])
-def property_summary():
+@app.get("/property_summary")
+async def property_summary():
     if agent.df is not None:
         summary = {
             "total_properties": len(agent.df),
@@ -91,19 +111,16 @@ def property_summary():
                 "median": float(agent.df["price"].median()) if "price" in agent.df.columns and not agent.df["price"].isnull().all() else None
             }
         }
-        return jsonify(summary)
+        return summary
     else:
-        return jsonify({"error": "Data not available"})
+        raise HTTPException(status_code=500, detail="Data not available")
 
-@app.route("/status", methods=["GET"])
-def status():
+@app.get("/status")
+async def status():
     if agent.df is None or agent.vector_store is None or agent.chain is None:
-        return jsonify({
-            "status": "error",
-            "message": "System not fully initialized"
-        })
+        raise HTTPException(status_code=500, detail="System not fully initialized")
 
-    return jsonify({
+    return {
         "status": "ok",
         "database_size": len(agent.df),
         "model": "OpenAI GPT-3.5 Turbo",
@@ -117,9 +134,11 @@ def status():
             "Contact information storage",
             "Property matching notifications"
         ]
-    })
+    }
 
-if __name__ == "__main__":
+# Startup event
+@app.on_event("startup")
+async def startup_event():
     if not os.getenv("OPENAI_API_KEY"):
         print("Error: OPENAI_API_KEY not found in environment variables or .env file")
         print("Please make sure you have set the OPENAI_API_KEY in your .env file")
@@ -130,11 +149,11 @@ if __name__ == "__main__":
         print("Failed to initialize chatbot. Exiting.")
         exit(1)
 
-    print("Starting the Flask server...")
-    app.run(
-        debug=True,
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
         host="0.0.0.0",
         port=5000,
-        use_reloader=False,  
-        threaded=True        
+        reload=False
     )

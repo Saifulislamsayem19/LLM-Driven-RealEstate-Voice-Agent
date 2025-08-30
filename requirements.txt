@@ -1,4 +1,7 @@
-flask
+fastapi 
+uvicorn 
+python-multipart 
+jinja2
 pandas
 numpy
 openai

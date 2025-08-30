@@ -10,3 +10,7 @@ __pycache__/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+# Vector database files
+vector_db/
+
