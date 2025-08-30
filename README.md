@@ -16,6 +16,12 @@ This project provides a robust platform to build intelligent conversational agen
 * **Text-to-Speech (TTS)** leveraging OpenAI's advanced voice synthesis to generate natural speech responses
 
 
+## Live Application
+
+Access the deployed Real Estate AI Agent application here: 
+[Live Demo](https://huggingface.co/spaces/saiful19/LLM-Driven-Real_Estate-Voice-Agent)
+
+
 ## 🌟 Key Features
 
 ### 🎯 **Intelligent Property Matching**
