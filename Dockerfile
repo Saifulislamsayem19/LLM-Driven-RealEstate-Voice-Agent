@@ -1,10 +1,9 @@
-# Use a small, modern Python image
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps (OpenBLAS/OMP helpful for faiss-cpu; ffmpeg for audio ops)
+# System deps 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake \
     libopenblas-dev libomp-dev \
@@ -28,5 +27,5 @@ EXPOSE 7860
 # Make FAISS/OpenMP behave well on small containers
 ENV OMP_NUM_THREADS=1
 
-# Start the Flask app via Gunicorn: module:variable -> app:app
+# Start the FastAPI app via Gunicorn: module:variable -> app:app
 CMD ["gunicorn", "-k", "gthread", "--threads", "2", "-b", "0.0.0.0:7860", "app:app"]
