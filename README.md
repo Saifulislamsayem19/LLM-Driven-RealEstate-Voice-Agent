@@ -1,3 +1,14 @@
+---
+title: LLM-Driven RealEstate Voice Agent
+emoji: 🏠
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
+
 # Real Estate AI Agent 🏠
 
 An advanced AI assistant framework leveraging LangGraph for workflow orchestration, powerful Large Language Models (LLMs), and Retrieval-Augmented Generation (RAG) for context-aware responses, combined with seamless Speech-to-Text (STT) and Text-to-Speech (TTS) features.
