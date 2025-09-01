@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 from dotenv import load_dotenv
 from audio import audio_router
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
@@ -150,7 +151,7 @@ async def startup_event():
         exit(1)
 
 if __name__ == "__main__":
-    import uvicorn
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
