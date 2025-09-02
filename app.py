@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 from dotenv import load_dotenv
 from audio import audio_router
@@ -13,8 +14,31 @@ from data_manager import USER_REQUIREMENTS_FILE
 
 load_dotenv()
 
+# Initialize the agent instance
+agent = RealEstateAgent()
+
+def init_chatbot():
+    """Initialize the agent by loading data, setting up vector db and chain"""
+    if not agent.initialize():
+        print("Failed to initialize data or vector database.")
+        return False
+    if not agent.setup_chain():
+        print("Failed to setup LangChain workflow.")
+        return False
+    print("Agent initialization complete.")
+    return True
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize resources before the app starts and clean up after it shuts down."""
+    # Initialize chatbot
+    if not init_chatbot():
+        raise RuntimeError("Failed to initialize the chatbot")
+    yield
+    print("Shutting down...")
+
 # Initialize FastAPI app
-app = FastAPI(title="Real Estate Assistant API")
+app = FastAPI(title="Real Estate Assistant API", lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -33,20 +57,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Initialize templates
 templates = Jinja2Templates(directory="templates")
-
-# Initialize the agent instance
-agent = RealEstateAgent()
-
-def init_chatbot():
-    """Initialize the agent by loading data, setting up vector db and chain"""
-    if not agent.initialize():
-        print("Failed to initialize data or vector database.")
-        return False
-    if not agent.setup_chain():
-        print("Failed to setup LangChain workflow.")
-        return False
-    print("Agent initialization complete.")
-    return True
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -119,7 +129,7 @@ async def property_summary():
 @app.get("/status")
 async def status():
     if agent.df is None or agent.vector_store is None or agent.chain is None:
-        raise HTTPException(status_code=500, detail="System not fully initialized")
+        raise HTTPException(status_code=503, detail="System initializing")
 
     return {
         "status": "ok",
@@ -137,23 +147,15 @@ async def status():
         ]
     }
 
-# Startup event
 @app.on_event("startup")
 async def startup_event():
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found in environment variables or .env file")
-        print("Please make sure you have set the OPENAI_API_KEY in your .env file")
-        exit(1)
-
-    print("Initializing the real estate chatbot with vector database...")
     if not init_chatbot():
-        print("Failed to initialize chatbot. Exiting.")
-        exit(1)
-
-if __name__ == "__main__":
+        raise RuntimeError("Failed to initialize the chatbot")
     
+if __name__ == "__main__":
+   
     uvicorn.run(
-        "main:app",
+        "app:app",
         host="0.0.0.0",
         port=7860,
         reload=False

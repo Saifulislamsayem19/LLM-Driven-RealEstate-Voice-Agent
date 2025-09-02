@@ -1,2 +1,34 @@
 timestamp,user_id,email,whatsapp,price_min,bedrooms,bathrooms,sqft_living,location,property_type,specific_requirements
 2025-05-17 15:46:17,01079c62,,013054354567,324000,2,1,,Seattle,apartment,a parking spot
+2025-09-01 09:37:52,78bb405c,saiful@gmail.com,,,2,1,,,apartment,a 2 bedroom apartment
+2025-09-01 09:47:15,b10f6623,saiful@gmail.com,,,2,1,,,apartment,a 2 bedroom apartment
+2025-09-01 10:02:28,d3be2947,saiful@gmail.com,,,2,,,,apartment,a 2 bedroom apartment
+2025-09-01 10:03:05,28486219,saiful@gmail.com,,,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:03:24,00b81443,saiful@gmail.com,,,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:03:34,3b3f46e3,saiful@gmail.com,,,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:03:53,d68090c2,saiful@gmail.com,,300000.0,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:04:01,48429b52,saiful@gmail.com,,300000,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:04:34,c98431c5,saiful@gmail.com,,300000,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:04:47,6de91014,saiful@gmail.com,,300000,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:05:18,a0df2cc1,saiful@gmail.com,,400000.0,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:05:24,09f43dd8,saiful@gmail.com,,400000,2,,,seattle,apartment,a 2 bedroom apartment
+2025-09-01 10:10:39,279d739f,saiful@gmail.com,,,2,1,,,apartment,a 2 bedroom apartment
+2025-09-01 10:36:07,780612e0,saiful@gmail.com,,,2,1,,,apartment,a 2 bedroom apartment
+2025-09-01 12:04:56,cc4ec49e,saiful@gmail.com,,,2,1,,,apartment,a 2 bedroom apartment
+2025-09-01 12:37:27,b0501bf8,saiful@gmail.com,,100000.0,2,0.0,0,dhaka,apartment,
+2025-09-02 06:41:03,b0efb508,saiful@gmail.com,,100000.0,2,0.0,0,dhaka,apartment,
+2025-09-02 06:50:25,60e5a801,saiful@gmail.com,,100000.0,2,,,Seattle,apartment,
+2025-09-02 07:05:22,143c6174,saiful@gmail.com,,,2,1.0,,dhaka,apartment,
+2025-09-02 09:25:44,f1b5938d,saiful@gmail.com,,100000.0,2,1.0,,,,
+2025-09-02 09:55:16,b4ee597d,saiful@gmail.com,,100000,2,,,Dhaka,apartment,
+2025-09-02 09:56:02,28f360af,saiful@gmail.com,,300000,2,,,Seattle,apartment,
+2025-09-02 09:57:56,e90819d1,saiful@gmail.com,,300000,2,,,Seattle,apartment,
+2025-09-02 09:59:00,c78533ea,saiful@gmail.com,,300000,2,,,Seattle,apartment,
+2025-09-02 11:06:15,5704926d,saiful@gmail.com,,100000,2,,,dhaka,apartment,
+2025-09-02 11:06:36,7a3e29c5,saiful@gmail.com,,100000,2,,,Seattle,apartment,
+2025-09-02 11:06:44,6cd113cd,saiful@gmail.com,,100000,2,,,Seattle,apartment,
+2025-09-02 11:07:20,cd331c3b,saiful@gmail.com,,100000,2,,,Seattle,apartment,
+2025-09-02 11:19:12,804923f9,saiful@gmail.com,,100000,2,1,,dhaka,apartment,
+2025-09-02 11:19:55,5a5c20e7,saiful@gmail.com,,100000,2,1,,Seattle,apartment,
+2025-09-02 11:20:14,bee1c562,saiful@gmail.com,,100000,2,1,,Seattle,apartment,
+2025-09-02 11:21:23,e893e3d9,saiful@gmail.com,,100000,2,1,,Seattle,apartment,

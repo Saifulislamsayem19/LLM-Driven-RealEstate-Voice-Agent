@@ -8,7 +8,7 @@ openai
 langchain
 langchain-openai
 langchain-community
-langgraqph
+langgraph
 faiss-cpu
 python-dotenv
 tqdm
