@@ -7,7 +7,7 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import Document
 from data_manager import load_and_preprocess_data, setup_vector_db, save_user_requirements, convert_numpy_types
 
-# Type definitions for our state
+# Type definitions for the Agent state
 class AgentState(TypedDict):
     query: str
     chat_history: List[Dict[str, str]]
@@ -21,7 +21,7 @@ class AgentState(TypedDict):
     similar_matches: List[Dict[str, Any]]
     needs_contact_info: bool
     no_properties_found: bool
-    selected_property_id: Optional[int]  # New field for property details
+    selected_property_id: Optional[int]  
 
 class RealEstateAgent:
     def __init__(self):
@@ -35,7 +35,7 @@ class RealEstateAgent:
         self.df, df_for_text, file_mtime = load_and_preprocess_data()
         if self.df is None:
             return False
-        # Unpack both returned values here
+        # Unpack both returned values
         _, vector_store = setup_vector_db(self.df, df_for_text, file_mtime)
         if vector_store is None:
             return False
@@ -59,6 +59,7 @@ class RealEstateAgent:
             descriptions.append("Ideal for couples or small families")
         else:
             descriptions.append("Cozy living space")
+        
         
         # Location appeal
         city = prop.get('city', '')
@@ -140,7 +141,6 @@ class RealEstateAgent:
         elif prop.get('yr_renovated', 0) > 2010:
             formatted += f"🔨 **Highlight:** Recently Renovated ({prop.get('yr_renovated')})\n"
         
-        
         return formatted
 
     def format_property_full_details(self, prop: Dict[str, Any]) -> str:
@@ -220,7 +220,7 @@ class RealEstateAgent:
             # Initialize the language model
             self.llm = ChatOpenAI(
                 model_name="gpt-3.5-turbo-16k",
-                temperature=0.3  # Lower temperature for more consistent requirement extraction
+                temperature=0.3
             )
             
             # System template for conversation
@@ -229,55 +229,56 @@ class RealEstateAgent:
 
             CRITICAL RULES:
             1. ONLY suggest properties that exist in our dataset - NEVER hallucinate or make up properties
-            2. For exact matches: ALL user requirements must be precisely met
-            3. For similar matches: Location must be EXACTLY the same, other criteria can vary within ±10% for budget, ±1 for bedrooms/bathrooms
-            4. If NO properties match the requirements, clearly state this and ask for contact info to notify about future matches
-            5. Always be truthful about what's available in our database
-            6. When showing property listings, include brief descriptions to help users understand each property's appeal
-            7. When users ask for "details", "more info", or mention a specific property ID, provide complete property information
+            2. MANDATORY: Users must provide both BUDGET AND LOCATION before showing any properties
+            3. For exact matches: ALL user requirements must be precisely met
+            4. For similar matches: Location must be EXACTLY the same, other criteria can vary within specified tolerances
+            5. If NO properties match the requirements, clearly state this and ask for contact info
+            6. Always be truthful about what's available in our database
+            7. When users ask for "details", "more info", or mention property by number or ID, provide complete property information
+
+            BUDGET AND LOCATION REQUIREMENT:
+            - If user asks to see properties without providing budget, ask for their budget range
+            - If user asks to see properties without providing location, ask for their preferred location/area
+            - If user provides only one of budget OR location, ask for the missing one
+            - Only search and show properties after BOTH budget and location are provided
+
+            PROPERTY DETAILS HANDLING:
+            - Handle requests like "details for property 1", "more info about property 2", "tell me about property ID 12345"
+            - Extract both property numbers (from listings) and property IDs
+            - Convert property numbers to actual property IDs using the shown properties list
 
             CONVERSATION APPROACH:
-            1. Begin professionally by introducing yourself and ask 1-2 specific questions
-            2. Gather key requirements one or two at a time (budget, location, bedrooms, etc.)
-            3. Continue asking questions until the user indicates they have no more requirements
-            4. Show at most 3 properties at a time with key features, descriptions, and personalized recommendations
-            5. When showing properties, mention how to get full details (e.g., "Say 'details [ID]' for complete information")
-            6. Provide complete property details when users request more information about specific properties
-            7. Request contact info (WhatsApp/email) when: no exact match found, scheduling a viewing, or conversation ending
+            1. Begin professionally and ask for budget and location if not provided
+            2. Gather additional requirements (bedrooms, bathrooms, sqft, special features)
+            3. Only show properties when budget AND location are confirmed
+            4. Show at most 3 properties at a time with key features and descriptions
+            5. Provide complete details when requested for specific properties
+            6. Request contact info when: no matches found, scheduling viewing, or conversation ending
 
-            PROPERTY DISPLAY FORMAT (for brief listings):
-            - Property ID: [ID]
-            - Price: $[PRICE]
-            - Bedrooms: [NUMBER]
-            - Bathrooms: [NUMBER]
-            - Square Footage: [SQFT] sq ft
-            - Description: [PERSONALIZED DESCRIPTION]
-            - Highlight: [ONE STANDOUT FEATURE]
-            - Instructions for full details
-
-            FULL DETAILS FORMAT:
-            When users request details about a specific property, show:
-            - Complete property information including all available fields
-            - Location details (street, city, state/zip, country)
-            - Construction details (year built, renovated, age)
-            - Property features (waterfront, view rating, condition)
-            - Space breakdown (above ground, basement, lot size)
-            - Special highlights and personalized overview
-            - Call to action for viewing
-
-            CONTACT INFO COLLECTION:
-            - Always collect WhatsApp/email when no exact matches are found
-            - Always collect WhatsApp/email when scheduling property viewings
-            - Always collect WhatsApp/email when the conversation appears to be ending
-            - Save all user requirements to CSV when contact info is provided
-            - Confirm saving and explicitly show saved requirements to the user
+            COMPREHENSIVE FILTERING CRITERIA:
+            - Budget: price range filtering
+            - Location: city, neighborhood, state/zip matching
+            - Bedrooms: exact number or range
+            - Bathrooms: exact number or range
+            - Square footage: living space size filtering
+            - Property type: house, condo, apartment, etc.
+            - Year built: construction year filtering
+            - Year renovated: renovation year filtering
+            - Waterfront: waterfront properties (yes/no)
+            - View rating: scenic view quality (1-5 scale)
+            - Condition rating: property condition (1-5 scale)
+            - Floors: number of floors/levels
+            - Lot size: outdoor space size
+            - Basement: basement square footage
+            - Special features: garage, fireplace, etc.
 
             CONVERSATION STAGE: {conversation_stage}
             USER REQUIREMENTS: {user_requirements}
             SEARCH RESULTS: {search_results}
             SELECTED PROPERTY: {selected_property_details}
+            PROPERTIES SHOWN: {properties_shown}
 
-            Remember: Be honest about what's available, provide helpful descriptions, and never suggest non-existent properties.
+            Remember: No properties shown without budget AND location. Be honest about availability.
             """
             
             # Create prompt templates
@@ -287,7 +288,7 @@ class RealEstateAgent:
                 ("human", "{query}")
             ])
             
-            # Define the function to extract user requirements using LLM
+            # Enhanced requirements extraction with comprehensive filtering
             def extract_requirements_with_llm(state: AgentState) -> AgentState:
                 if not state.get("user_requirements"):
                     state["user_requirements"] = {}
@@ -295,48 +296,101 @@ class RealEstateAgent:
                 # Check if user is asking for property details
                 query_lower = state["query"].lower()
                 
-                # Extract property ID if user is asking for details
-                property_id_patterns = [
-                    r'details?\s+(\d+)',
-                    r'more\s+info\s+(\d+)',
-                    r'tell\s+me\s+more\s+about\s+(\d+)',
-                    r'property\s+(\d+)',
-                    r'full\s+details\s+(\d+)',
-                    r'information\s+about\s+(\d+)'
+                # Enhanced property detail request patterns
+                property_detail_patterns = [
+                    # Direct property ID patterns
+                    r'(?:details?|info|information|more)\s+(?:about|for|on)?\s*(?:property\s+)?(?:id\s+)?(\d+)',
+                    r'(?:tell\s+me\s+(?:more\s+)?about|show\s+me\s+(?:more\s+)?(?:details?|info))\s+(?:property\s+)?(?:id\s+)?(\d+)',
+                    r'(?:property\s+)?(?:id\s+)?(\d+)\s+(?:details?|info|information)',
+                    r'(?:full\s+)?(?:details?|info|information)\s+(?:of|for|about)\s+(?:property\s+)?(?:id\s+)?(\d+)',
+                    r'(?:details?|info|information|more)\s+(?:about|for|on)?\s*(?:property\s+)?(?:number\s+)?(\d+)(?:st|nd|rd|th)?\s*$',
+                    r'(?:tell\s+me\s+(?:more\s+)?about|show\s+me\s+(?:more\s+)?(?:details?|info))\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)?\s+(?:property|one)',
+                    r'(?:the\s+)?(\d+)(?:st|nd|rd|th)?\s+(?:property|one)',
+                    r'property\s+(?:number\s+)?(\d+)(?:st|nd|rd|th)?',
+                    r'(\d+)(?:st|nd|rd|th)?\s+property'
                 ]
                 
-                for pattern in property_id_patterns:
+                for pattern in property_detail_patterns:
                     match = re.search(pattern, query_lower)
                     if match:
                         try:
-                            state["selected_property_id"] = int(match.group(1))
+                            requested_number = int(match.group(1))
+                            
+                            # Check if it's a property number (1-3) from recent listings
+                            if 1 <= requested_number <= 3 and state.get("properties_shown"):
+                                # Convert property number to actual property ID
+                                property_index = requested_number - 1
+                                if property_index < len(state["properties_shown"]):
+                                    state["selected_property_id"] = state["properties_shown"][property_index]
+                                    state["conversation_stage"] = "providing_details"
+                                    return state
+                            
+                            # Otherwise treat as direct property ID
+                            state["selected_property_id"] = requested_number
                             state["conversation_stage"] = "providing_details"
                             return state
                         except ValueError:
                             pass
                 
-                # Use LLM to extract requirements from the conversation
+                # Enhanced LLM extraction for comprehensive filtering
                 extraction_prompt = """
-                You are an expert at extracting real estate requirements from user messages.
-                Analyze the user's message and previous requirements to extract specific property criteria.
+                You are an expert at extracting comprehensive real estate requirements from user messages.
+                Analyze the user's message and previous requirements to extract ALL possible property criteria.
                 
                 USER MESSAGE: {query}
                 CURRENT REQUIREMENTS: {current_requirements}
                 
-                Extract and update the following information (only include if explicitly mentioned):
+                Extract and update ALL mentioned requirements (only include if explicitly mentioned):
+                
+                BASIC REQUIREMENTS:
                 - budget: numerical value (convert k/thousand/million to actual numbers)
+                - location: city, neighborhood, area, state name
                 - bedrooms: integer number
-                - bathrooms: integer or float number  
-                - sqft_living: integer square footage
-                - location: city, neighborhood, or area name
-                - property_type: apartment, condo, house, townhouse, villa, etc.
-                - special_requirements: any other specific needs mentioned
+                - bathrooms: integer or float number
+                - sqft_living: integer square footage of living space
                 
-                Return ONLY a valid JSON object with the extracted requirements. 
+                ADVANCED FILTERING:
+                - property_type: house, condo, apartment, townhouse, villa, etc.
+                - year_built: construction year (YYYY format)
+                - year_renovated: renovation year (YYYY format)
+                - waterfront: true/false for waterfront properties
+                - view_rating: integer 1-5 for scenic views
+                - condition_rating: integer 1-5 for property condition
+                - floors: integer number of floors/levels
+                - sqft_lot: integer lot/yard size in square feet
+                - sqft_basement: integer basement size in square feet
+                - garage: true/false or number of garage spaces
+                - fireplace: true/false
+                - swimming_pool: true/false
+                - garden: true/false
+                - parking: true/false or number of spaces
+                - furnished: true/false
+                - pets_allowed: true/false
+                - new_construction: true/false (built within last 5 years)
+                - recently_renovated: true/false (renovated within last 10 years)
+                
+                PRICE RANGES:
+                - budget_min: minimum price if range given
+                - budget_max: maximum price if range given
+                
+                SIZE RANGES:
+                - bedrooms_min: minimum bedrooms if range given
+                - bedrooms_max: maximum bedrooms if range given
+                - bathrooms_min: minimum bathrooms if range given
+                - bathrooms_max: maximum bathrooms if range given
+                - sqft_living_min: minimum living space if range given
+                - sqft_living_max: maximum living space if range given
+                
+                SPECIAL REQUIREMENTS:
+                - special_features: list of any other specific requirements mentioned
+                
+                Return ONLY a valid JSON object with the extracted requirements.
                 If a requirement is not mentioned, don't include it in the JSON.
-                If updating existing requirements, merge with current ones.
+                If a requirement is in string or ambiguous format, convert to appropriate type.
+                If a requirement contradicts previous ones, update to the latest.
+                Merge with existing requirements without overriding unless explicitly contradicted.
                 
-                Example: {{"budget": 500000, "bedrooms": 3, "location": "Seattle"}}
+                Example: {{"budget": 500000, "location": "Seattle", "bedrooms": 3, "waterfront": true, "garage": true}}
                 """
                 
                 try:
@@ -347,16 +401,12 @@ class RealEstateAgent:
                         )
                     )
                     
-                    # Parse the LLM response to extract JSON
                     response_text = extraction_response.content.strip()
                     
-                    # Try to extract JSON from the response
                     try:
-                        # Look for JSON object in the response
                         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                         if json_match:
                             extracted_requirements = json.loads(json_match.group())
-                            # Merge with existing requirements
                             state["user_requirements"].update(extracted_requirements)
                         
                     except json.JSONDecodeError:
@@ -368,9 +418,9 @@ class RealEstateAgent:
                 print("Updated requirements:", state["user_requirements"])
                 return state
             
-            # Define the function to search for properties in dataset ONLY
+            # Enhanced property search with comprehensive filtering
             def search_properties_in_dataset(state: AgentState) -> AgentState:
-                """Search for properties in the dataset only - no hallucination"""
+                """Search for properties with comprehensive filtering - dataset only"""
                 # If user is asking for specific property details, skip search
                 if state.get("selected_property_id"):
                     return state
@@ -382,142 +432,188 @@ class RealEstateAgent:
                     return state
                 
                 requirements = state["user_requirements"]
+                
+                # CRITICAL: Check for mandatory budget and location
+                budget = requirements.get("budget")
+                budget_min = requirements.get("budget_min", budget)
+                budget_max = requirements.get("budget_max", budget)
+                location = requirements.get("location")
+                
+                # If budget or location missing, don't search
+                if not budget and not (budget_min or budget_max):
+                    state["exact_matches"] = []
+                    state["similar_matches"] = []
+                    state["no_properties_found"] = False
+                    state["conversation_stage"] = "gathering_requirements"
+                    return state
+                
+                if not location:
+                    state["exact_matches"] = []
+                    state["similar_matches"] = []
+                    state["no_properties_found"] = False
+                    state["conversation_stage"] = "gathering_requirements"
+                    return state
+                
                 exact_matches = []
                 similar_matches = []
                 
-                # Get filter criteria
-                budget = requirements.get("budget")
-                bedrooms = requirements.get("bedrooms")
-                bathrooms = requirements.get("bathrooms")
-                sqft = requirements.get("sqft_living")
-                location = requirements.get("location")
-                property_type = requirements.get("property_type")
-                
-                print(f"Searching dataset for: Budget=${budget}, Beds={bedrooms}, Baths={bathrooms}, Sqft={sqft}, Location={location}")
+                print(f"Comprehensive search for: Budget=${budget}, Location={location}")
+                print(f"Additional filters: {requirements}")
                 
                 # Start with full dataset
                 df_copy = self.df.copy()
                 
-                # STEP 1: Find exact matches with strict criteria
+                # STEP 1: Find exact matches with comprehensive filtering
                 exact_df = df_copy.copy()
                 
+                # Budget filtering
                 if budget:
-                    # Exact budget match (within $1000 tolerance)
-                    exact_df = exact_df[abs(exact_df['price'] - budget) <= 1000]
+                    exact_df = exact_df[abs(exact_df['price'] - budget) <= 5000]  
+                elif budget_min or budget_max:
+                    if budget_min:
+                        exact_df = exact_df[exact_df['price'] >= budget_min]
+                    if budget_max:
+                        exact_df = exact_df[exact_df['price'] <= budget_max]
                 
-                if bedrooms is not None:
-                    exact_df = exact_df[exact_df['bedrooms'] == bedrooms]
-                
-                if bathrooms is not None:
-                    exact_df = exact_df[exact_df['bathrooms'] == bathrooms]
-                
-                if sqft:
-                    # Exact sqft match (within 50 sqft tolerance)
-                    exact_df = exact_df[abs(exact_df['sqft_living'] - sqft) <= 50]
-                
+                # Location filtering
                 if location:
-                    # Check multiple location columns if they exist
                     location_filter = False
-                    if 'city' in exact_df.columns:
-                        location_filter |= exact_df['city'].str.lower().str.contains(location.lower(), na=False)
-                    if 'neighborhood' in exact_df.columns:
-                        location_filter |= exact_df['neighborhood'].str.lower().str.contains(location.lower(), na=False)
-                    if 'statezip' in exact_df.columns:
-                        location_filter |= exact_df['statezip'].str.lower().str.contains(location.lower(), na=False)
-                    
+                    for col in ['city', 'neighborhood', 'statezip', 'state', 'area']:
+                        if col in exact_df.columns:
+                            location_filter |= exact_df[col].str.lower().str.contains(location.lower(), na=False)
                     if isinstance(location_filter, bool) and not location_filter:
-                        # No location columns found, skip location filter for now
                         pass
                     else:
                         exact_df = exact_df[location_filter]
                 
-                if property_type:
-                    if 'property_type' in exact_df.columns:
-                        exact_df = exact_df[exact_df['property_type'].str.lower() == property_type.lower()]
+                # Comprehensive filtering
+                filters = [
+                    ('bedrooms', 'bedrooms', 0),
+                    ('bathrooms', 'bathrooms', 0),
+                    ('sqft_living', 'sqft_living', 100),
+                    ('property_type', 'property_type', None),
+                    ('year_built', 'yr_built', 2),
+                    ('year_renovated', 'yr_renovated', 2),
+                    ('waterfront', 'waterfront', None),
+                    ('view_rating', 'view', 0),
+                    ('condition_rating', 'condition', 0),
+                    ('floors', 'floors', 0),
+                    ('sqft_lot', 'sqft_lot', 500),
+                    ('sqft_basement', 'sqft_basement', 100)
+                ]
+                
+                for req_key, df_col, tolerance in filters:
+                    if req_key in requirements and df_col in exact_df.columns:
+                        value = requirements[req_key]
+                        if tolerance is None:
+                            # Exact match for categorical data
+                            if isinstance(value, bool):
+                                exact_df = exact_df[exact_df[df_col] == (1 if value else 0)]
+                            elif isinstance(value, str):
+                                exact_df = exact_df[exact_df[df_col].str.lower() == value.lower()]
+                            else:
+                                exact_df = exact_df[exact_df[df_col] == value]
+                        elif tolerance == 0:
+                            # Exact numeric match
+                            exact_df = exact_df[exact_df[df_col] == value]
+                        else:
+                            # Tolerance-based numeric match
+                            exact_df = exact_df[abs(exact_df[df_col] - value) <= tolerance]
+                
+                # Range filtering
+                range_filters = [
+                    ('bedrooms_min', 'bedrooms_max', 'bedrooms'),
+                    ('bathrooms_min', 'bathrooms_max', 'bathrooms'),
+                    ('sqft_living_min', 'sqft_living_max', 'sqft_living')
+                ]
+                
+                for min_key, max_key, df_col in range_filters:
+                    if df_col in exact_df.columns:
+                        if min_key in requirements:
+                            exact_df = exact_df[exact_df[df_col] >= requirements[min_key]]
+                        if max_key in requirements:
+                            exact_df = exact_df[exact_df[df_col] <= requirements[max_key]]
                 
                 # Get exact matches
                 if not exact_df.empty:
                     exact_matches = exact_df.head(5).to_dict('records')
+                    # Store property IDs for reference
+                    state["properties_shown"] = [prop['property_id'] for prop in exact_matches[:3]]
                     print(f"Found {len(exact_matches)} exact matches")
                 
-                # STEP 2: If no exact matches, find similar matches with location constraint
+                # STEP 2: Similar matches with relaxed criteria
                 if len(exact_matches) == 0:
                     similar_df = df_copy.copy()
                     
-                    # CRITICAL: For similar matches, location must be EXACTLY the same
+                    # Location must be EXACTLY the same for similar matches
                     if location:
                         location_matched = False
-                        if 'city' in similar_df.columns:
-                            city_match = similar_df['city'].str.lower().str.contains(location.lower(), na=False)
-                            if city_match.any():
-                                similar_df = similar_df[city_match]
-                                location_matched = True
+                        for col in ['city', 'neighborhood', 'statezip', 'state', 'area']:
+                            if col in similar_df.columns:
+                                location_match = similar_df[col].str.lower().str.contains(location.lower(), na=False)
+                                if location_match.any():
+                                    similar_df = similar_df[location_match]
+                                    location_matched = True
+                                    break
                         
-                        if not location_matched and 'neighborhood' in similar_df.columns:
-                            neighborhood_match = similar_df['neighborhood'].str.lower().str.contains(location.lower(), na=False)
-                            if neighborhood_match.any():
-                                similar_df = similar_df[neighborhood_match]
-                                location_matched = True
-                        
-                        if not location_matched and 'statezip' in similar_df.columns:
-                            statezip_match = similar_df['statezip'].str.lower().str.contains(location.lower(), na=False)
-                            if statezip_match.any():
-                                similar_df = similar_df[statezip_match]
-                                location_matched = True
-                        
-                        # If location specified but no properties found in that location
                         if not location_matched:
-                            print(f"No properties found in specified location: {location}")
-                            similar_df = similar_df.iloc[0:0]  # Empty dataframe
+                            similar_df = similar_df.iloc[0:0]  
                     
-                    # Apply relaxed criteria for other requirements
+                    # Relaxed filtering for similar matches
                     if not similar_df.empty:
+                        # Budget with ±15% tolerance
                         if budget:
-                            # ±10% budget tolerance for similar matches
-                            budget_min = budget * 0.9
-                            budget_max = budget * 1.1
-                            similar_df = similar_df[similar_df['price'].between(budget_min, budget_max)]
+                            budget_min_sim = budget * 0.85
+                            budget_max_sim = budget * 1.15
+                            similar_df = similar_df[similar_df['price'].between(budget_min_sim, budget_max_sim)]
+                        elif budget_min or budget_max:
+                            if budget_min:
+                                similar_df = similar_df[similar_df['price'] >= budget_min * 0.9]
+                            if budget_max:
+                                similar_df = similar_df[similar_df['price'] <= budget_max * 1.1]
                         
-                        if bedrooms is not None:
-                            # ±1 bedroom tolerance
-                            similar_df = similar_df[(similar_df['bedrooms'] >= bedrooms - 1) & 
-                                                    (similar_df['bedrooms'] <= bedrooms + 1)]
+                        # Relaxed criteria for other filters
+                        relaxed_filters = [
+                            ('bedrooms', 'bedrooms', 1),
+                            ('bathrooms', 'bathrooms', 1),
+                            ('sqft_living', 'sqft_living', 0.15),  
+                            ('year_built', 'yr_built', 10),
+                            ('floors', 'floors', 1)
+                        ]
                         
-                        if bathrooms is not None:
-                            # ±0.5 bathroom tolerance
-                            similar_df = similar_df[(similar_df['bathrooms'] >= bathrooms - 0.5) & 
-                                                    (similar_df['bathrooms'] <= bathrooms + 0.5)]
+                        for req_key, df_col, tolerance in relaxed_filters:
+                            if req_key in requirements and df_col in similar_df.columns:
+                                value = requirements[req_key]
+                                if req_key == 'sqft_living':
+                                    # Percentage-based tolerance
+                                    min_val = value * (1 - tolerance)
+                                    max_val = value * (1 + tolerance)
+                                    similar_df = similar_df[similar_df[df_col].between(min_val, max_val)]
+                                else:
+                                    # Fixed tolerance
+                                    similar_df = similar_df[abs(similar_df[df_col] - value) <= tolerance]
                         
-                        if sqft:
-                            # ±10% sqft tolerance for similar matches
-                            sqft_min = sqft * 0.9
-                            sqft_max = sqft * 1.1
-                            similar_df = similar_df[similar_df['sqft_living'].between(sqft_min, sqft_max)]
-                        
-                        if property_type and 'property_type' in similar_df.columns:
-                            similar_df = similar_df[similar_df['property_type'].str.lower() == property_type.lower()]
-                        
-                        # Sort similar matches by price proximity to budget
+                        # Sort by price proximity to budget
                         if budget and not similar_df.empty:
                             similar_df['price_diff'] = abs(similar_df['price'] - budget)
                             similar_df = similar_df.sort_values('price_diff')
                         
-                        # Get similar matches
                         similar_matches = similar_df.head(5).to_dict('records')
+                        # Store property IDs for reference
+                        state["properties_shown"] = [prop['property_id'] for prop in similar_matches[:3]]
                         print(f"Found {len(similar_matches)} similar matches")
                 
                 # Update state
                 state["exact_matches"] = exact_matches
                 state["similar_matches"] = similar_matches
                 state["no_properties_found"] = (len(exact_matches) == 0 and len(similar_matches) == 0)
-                state["needs_contact_info"] = state["no_properties_found"] or len(exact_matches) == 0
+                state["needs_contact_info"] = state["no_properties_found"]
                 
-                print(f"Search complete - Exact: {len(exact_matches)}, Similar: {len(similar_matches)}, None found: {state['no_properties_found']}")
+                print(f"Search complete - Exact: {len(exact_matches)}, Similar: {len(similar_matches)}")
                 return state
             
-            # Define function to decide the next action
+            # Enhanced decision logic
             def decide_next_action(state: AgentState) -> AgentState:
-                # Initialize conversation stage if not present
                 if "conversation_stage" not in state:
                     state["conversation_stage"] = "initial_greeting"
                     return state
@@ -527,6 +623,10 @@ class RealEstateAgent:
                 has_contact_info = "contact_info" in state and (
                     state["contact_info"].get("email") or state["contact_info"].get("whatsapp")
                 )
+                
+                # Check for budget and location requirements
+                has_budget = requirements.get("budget") or requirements.get("budget_min") or requirements.get("budget_max")
+                has_location = requirements.get("location")
                 
                 # Check if user is asking for property details
                 if state.get("selected_property_id"):
@@ -555,21 +655,25 @@ class RealEstateAgent:
                     "appointment", "schedule", "when can i", "available to see"
                 ])
                 
-                # Stage transitions
+                # Stage transitions with budget/location enforcement
                 if current_stage == "initial_greeting":
                     state["conversation_stage"] = "gathering_requirements"
                 
                 elif current_stage == "gathering_requirements":
-                    # Check if we have enough requirements to search
-                    has_basic_requirements = any(key in requirements for key in ["budget", "bedrooms", "location"])
-                    
-                    if wants_to_see_properties and has_basic_requirements:
-                        state["conversation_stage"] = "searching_properties"
+                    # Must have both budget and location before showing properties
+                    if wants_to_see_properties:
+                        if has_budget and has_location:
+                            state["conversation_stage"] = "searching_properties"
+                        else:
+                            # Stay in gathering requirements if missing budget or location
+                            state["conversation_stage"] = "gathering_requirements"
                     elif conversation_ending:
                         state["conversation_stage"] = "requesting_contact"
                 
                 elif current_stage == "searching_properties":
-                    if state.get("no_properties_found"):
+                    if not has_budget or not has_location:
+                        state["conversation_stage"] = "gathering_requirements"
+                    elif state.get("no_properties_found"):
                         state["conversation_stage"] = "no_matches_found"
                     elif state.get("exact_matches"):
                         state["conversation_stage"] = "showing_exact_matches"
@@ -609,11 +713,10 @@ class RealEstateAgent:
                 
                 return state
             
-            # Define the function to collect contact information
+            # Contact info collection function
             def collect_contact_info(state: AgentState) -> AgentState:
                 query = state["query"]
                 
-                # Initialize contact info if not present
                 if "contact_info" not in state:
                     state["contact_info"] = {}
                 
@@ -631,7 +734,7 @@ class RealEstateAgent:
                 
                 return state
             
-            # Define the function to generate response
+            # Enhanced response generation
             def generate_response(state: AgentState) -> AgentState:
                 # Format user requirements
                 user_requirements_str = "No requirements collected yet."
@@ -639,21 +742,57 @@ class RealEstateAgent:
                     requirements = state["user_requirements"]
                     user_requirements_str = "Requirements collected:\n"
                     
+                    # Basic requirements
                     if "budget" in requirements:
                         user_requirements_str += f"- Budget: ${requirements['budget']:,.0f}\n"
+                    elif "budget_min" in requirements or "budget_max" in requirements:
+                        min_budget = requirements.get('budget_min', 'No min')
+                        max_budget = requirements.get('budget_max', 'No max')
+                        user_requirements_str += f"- Budget Range: ${min_budget} - ${max_budget}\n"
+                    
+                    if "location" in requirements:
+                        user_requirements_str += f"- Location: {requirements['location']}\n"
                     if "bedrooms" in requirements:
                         user_requirements_str += f"- Bedrooms: {requirements['bedrooms']}\n"
                     if "bathrooms" in requirements:
                         user_requirements_str += f"- Bathrooms: {requirements['bathrooms']}\n"
                     if "sqft_living" in requirements:
                         user_requirements_str += f"- Square Footage: {requirements['sqft_living']} sq ft\n"
-                    if "location" in requirements:
-                        user_requirements_str += f"- Location: {requirements['location']}\n"
-                    if "property_type" in requirements:
-                        user_requirements_str += f"- Property Type: {requirements['property_type']}\n"
+                    
+                    # Advanced filters
+                    advanced_filters = {
+                        'property_type': 'Property Type',
+                        'year_built': 'Year Built',
+                        'year_renovated': 'Year Renovated',
+                        'waterfront': 'Waterfront',
+                        'view_rating': 'View Rating',
+                        'condition_rating': 'Condition Rating',
+                        'floors': 'Floors',
+                        'sqft_lot': 'Lot Size (sq ft)',
+                        'sqft_basement': 'Basement Size (sq ft)',
+                        'garage': 'Garage',
+                        'fireplace': 'Fireplace',
+                        'swimming_pool': 'Swimming Pool'
+                    }
+                    
+                    for key, label in advanced_filters.items():
+                        if key in requirements:
+                            value = requirements[key]
+                            if isinstance(value, bool):
+                                value = "Yes" if value else "No"
+                            user_requirements_str += f"- {label}: {value}\n"
                 
-                # Format search results
+                # Check if budget and location are present
+                has_budget = requirements.get("budget") or requirements.get("budget_min") or requirements.get("budget_max") if requirements else False
+                has_location = requirements.get("location") if requirements else False
+                
+                # Format search results with budget/location check
                 search_results_str = ""
+                properties_shown_str = ""
+                
+                # Add property IDs shown for reference
+                if state.get("properties_shown"):
+                    properties_shown_str = f"Properties currently shown (IDs): {state['properties_shown']}\n"
                 
                 # Handle specific property details request
                 selected_property_details = ""
@@ -666,22 +805,35 @@ class RealEstateAgent:
                     else:
                         search_results_str = f"PROPERTY ID {property_id} NOT FOUND IN DATABASE.\n"
                 
-                # Add exact matches if found (for brief listings)
-                elif state.get("exact_matches"):
-                    search_results_str += "EXACT MATCHES FOUND IN DATABASE:\n"
-                    for i, prop in enumerate(state["exact_matches"][:3]):  # Show max 3
-                        search_results_str += self.format_property_brief(prop, i+1)
+                # Only show properties if budget AND location are provided
+                elif has_budget and has_location:
+                    # Add exact matches if found
+                    if state.get("exact_matches"):
+                        search_results_str += "EXACT MATCHES FOUND IN DATABASE:\n"
+                        for i, prop in enumerate(state["exact_matches"][:3]):
+                            search_results_str += self.format_property_brief(prop, i+1)
+                    
+                    # Add similar matches if no exact matches
+                    elif state.get("similar_matches"):
+                        search_results_str += "SIMILAR MATCHES FOUND IN DATABASE (within criteria):\n"
+                        for i, prop in enumerate(state["similar_matches"][:3]):
+                            search_results_str += self.format_property_brief(prop, i+1)
+                    
+                    # Handle no matches found
+                    elif state.get("no_properties_found"):
+                        search_results_str += "NO PROPERTIES FOUND IN DATABASE matching the specified requirements.\n"
+                        search_results_str += "We need to collect contact information to notify about future matches.\n"
                 
-                # Add similar matches if no exact matches (for brief listings)
-                elif state.get("similar_matches"):
-                    search_results_str += "SIMILAR MATCHES FOUND IN DATABASE (within criteria):\n"
-                    for i, prop in enumerate(state["similar_matches"][:3]):  # Show max 3
-                        search_results_str += self.format_property_brief(prop, i+1)
-                
-                # Handle no matches found
-                elif state.get("no_properties_found"):
-                    search_results_str += "NO PROPERTIES FOUND IN DATABASE matching the specified requirements.\n"
-                    search_results_str += "We need to collect contact information to notify about future matches.\n"
+                else:
+                    # Missing budget or location
+                    missing_items = []
+                    if not has_budget:
+                        missing_items.append("BUDGET")
+                    if not has_location:
+                        missing_items.append("LOCATION")
+                    
+                    search_results_str += f"MISSING REQUIRED INFORMATION: {' and '.join(missing_items)}\n"
+                    search_results_str += "Cannot search properties without both budget and location.\n"
                 
                 # Add contact info status
                 contact_info = state.get("contact_info", {})
@@ -697,6 +849,7 @@ class RealEstateAgent:
                         "user_requirements": user_requirements_str,
                         "conversation_stage": state["conversation_stage"],
                         "selected_property_details": selected_property_details,
+                        "properties_shown": properties_shown_str,
                         "chat_history": state.get("chat_history", []),
                         "query": state["query"]
                     })
@@ -735,7 +888,7 @@ class RealEstateAgent:
             return None
 
 def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict[str, Any]:
-    """Process a user query and generate a response"""
+    """Process a user query and generate a response with enhanced filtering and validation"""
     
     # Initialize state with default values
     state = {
@@ -780,10 +933,10 @@ def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict
     state["chat_history"] = [msg for msg in chat_history if msg["role"] in ["user", "assistant"]]
 
     try:
-        # Process with LangGraph workflow
+        # Process with enhanced LangGraph workflow
         result = agent.chain.invoke(state)
         
-        # Format the response with full system state
+        # Format the response with comprehensive system state
         response = {
             "answer": result["response"],
             "system_state": {
@@ -801,39 +954,56 @@ def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict
             }
         }
 
-        # Save requirements only when contact info is provided and not already saved
-        if (response["system_state"]["contact_info"].get("email") or 
-            response["system_state"]["contact_info"].get("whatsapp")) and not response["system_state"]["requirements_saved"]:
+        # Enhanced requirements saving with validation
+        contact_info = response["system_state"]["contact_info"]
+        requirements = response["system_state"]["requirements"]
+        
+        if ((contact_info.get("email") or contact_info.get("whatsapp")) and 
+            requirements and not response["system_state"]["requirements_saved"]):
             
-            # Prepare data for saving
-            save_data = {
-                "user_requirements": response["system_state"]["requirements"],
-                "contact_info": response["system_state"]["contact_info"],
-                "conversation_stage": response["system_state"]["conversation_stage"]
-            }
+            # Validate  meaningful requirements
+            has_budget = requirements.get("budget") or requirements.get("budget_min") or requirements.get("budget_max")
+            has_location = requirements.get("location")
             
-            # Convert numpy types before saving
-            save_data = convert_numpy_types(save_data)
-            
-            save_success = save_user_requirements(save_data)
-            response["system_state"]["requirements_saved"] = save_success
-            
-            if save_success:
-                print("User requirements saved successfully to CSV")
+            if has_budget and has_location:
+                # Prepare data for saving
+                save_data = {
+                    "user_requirements": requirements,
+                    "contact_info": contact_info,
+                    "conversation_stage": response["system_state"]["conversation_stage"]
+                }
+                
+                # Convert numpy types before saving
+                save_data = convert_numpy_types(save_data)
+                
+                save_success = save_user_requirements(save_data)
+                response["system_state"]["requirements_saved"] = save_success
+                
+                if save_success:
+                    print("Enhanced user requirements saved successfully to CSV")
+                    print(f"Saved requirements: {requirements}")
 
-        # Add property data to response for reference (but don't expose in conversation unless from dataset)
+        # Add property data to response for reference (dataset only)
         if "exact_matches" in result and result["exact_matches"]:
-            response["exact_matches"] = result["exact_matches"][:3]  # Limit to 3
+            response["exact_matches"] = result["exact_matches"][:3]  
 
         if "similar_matches" in result and result["similar_matches"]:
-            response["similar_matches"] = result["similar_matches"][:3]  # Limit to 3
+            response["similar_matches"] = result["similar_matches"][:3] 
+
+        # Add validation info
+        response["validation_info"] = {
+            "has_budget": bool(requirements.get("budget") or requirements.get("budget_min") or requirements.get("budget_max")) if requirements else False,
+            "has_location": bool(requirements.get("location")) if requirements else False,
+            "properties_from_dataset": True,  
+            "comprehensive_filtering_active": True
+        }
 
         return response
 
     except Exception as e:
-        print(f"Error processing query: {e}")
+        print(f"Error processing query with enhanced filtering: {e}")
         return {
-            "answer": "I apologize, but I encountered an error while searching our property database. Please try rephrasing your request or contact our support team.",
+            "answer": "I apologize, but I encountered an error while searching our property database with your comprehensive criteria. Please try rephrasing your request or contact our support team.",
             "system_state": {
                 "type": "system",
                 "requirements": state.get("user_requirements", {}),
@@ -846,5 +1016,12 @@ def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict
                 "no_properties_found": True,
                 "requirements_saved": False,
                 "selected_property_id": None
+            },
+            "validation_info": {
+                "has_budget": False,
+                "has_location": False,
+                "properties_from_dataset": True,
+                "comprehensive_filtering_active": True,
+                "error_occurred": True
             }
         }

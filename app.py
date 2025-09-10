@@ -147,10 +147,6 @@ async def status():
         ]
     }
 
-@app.on_event("startup")
-async def startup_event():
-    if not init_chatbot():
-        raise RuntimeError("Failed to initialize the chatbot")
     
 if __name__ == "__main__":
    
