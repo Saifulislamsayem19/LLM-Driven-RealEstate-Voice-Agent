@@ -229,7 +229,7 @@ class RealEstateAgent:
 
             CRITICAL RULES:
             1. ONLY suggest properties that exist in our dataset - NEVER hallucinate or make up properties
-            2. MANDATORY: Users must provide both BUDGET AND LOCATION before showing any properties
+            2. MANDATORY: Users must provide both BUDGET AND LOCATION before showing any properties but for normal conversations, answer questions freely
             3. For exact matches: ALL user requirements must be precisely met
             4. For similar matches: Location must be EXACTLY the same, other criteria can vary within specified tolerances
             5. If NO properties match the requirements, clearly state this and ask for contact info
