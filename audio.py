@@ -14,7 +14,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable not set")
 
-# Initialize the OpenAI client 
+# Initialize the OpenAI client  
 client = openai.OpenAI(api_key=api_key)
 
 @audio_router.post("/transcribe")
@@ -24,7 +24,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...)):
         # Read the file content
         contents = await audio_file.read()
         
-        # Save to a temporary file (OpenAI API requires a file-like object)
+        # Save to a temporary file 
         temp_filename = f"temp_{audio_file.filename}"
         with open(temp_filename, "wb") as f:
             f.write(contents)
