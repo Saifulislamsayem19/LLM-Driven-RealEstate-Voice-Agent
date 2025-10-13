@@ -1,12 +1,13 @@
 import os
 import pandas as pd
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Request, Query, Form
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
+from pathlib import Path
 from dotenv import load_dotenv
 from audio import audio_router
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
@@ -125,6 +126,67 @@ async def property_summary():
         return summary
     else:
         raise HTTPException(status_code=500, detail="Data not available")
+
+@app.api_route("/api-@dmin", methods=["GET", "POST"])
+async def admin_panel(
+    request: Request,
+    success: bool = Query(False),
+    api_key: str = Form(None)
+):
+    """Admin panel for API key configuration - handles both GET and POST"""
+    
+    if request.method == "POST":
+        # Handle form submission
+        try:
+            if api_key:
+                # Update the .env file
+                env_file_path = Path('.env')
+                env_vars = {}
+                
+                # Read existing environment variables
+                if env_file_path.exists():
+                    with open(env_file_path, 'r') as env_file:
+                        for line in env_file:
+                            if '=' in line and not line.startswith('#'):
+                                key, value = line.strip().split('=', 1)
+                                env_vars[key] = value
+                
+                # Update OpenAI API key
+                env_vars['OPENAI_API_KEY'] = api_key
+                os.environ['OPENAI_API_KEY'] = api_key
+                
+                # Write back to .env file
+                with open(env_file_path, 'w') as env_file:
+                    for key, value in env_vars.items():
+                        env_file.write(f"{key}={value}\n")
+                
+                print(f"✅ OpenAI API key updated: {api_key[:10]}...")
+                
+                # Redirect with success parameter
+                return RedirectResponse(url="/api-@dmin?success=True", status_code=303)
+            
+        except Exception as e:
+            print(f"❌ Error updating API key: {e}")
+            # On error, still show the form but with error state
+            return templates.TemplateResponse(
+                "admin.html", 
+                {
+                    "request": request, 
+                    "success": False,
+                    "error": str(e)
+                }
+            )
+    
+    # Handle GET request - show the form
+    current_api_key = os.getenv("OPENAI_API_KEY", "")
+    return templates.TemplateResponse(
+        "admin.html", 
+        {
+            "request": request, 
+            "success": success,
+            "current_api_key": current_api_key
+        }
+    )
 
 @app.get("/status")
 async def status():

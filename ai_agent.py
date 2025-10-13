@@ -291,7 +291,10 @@ class RealEstateAgent:
             # Enhanced requirements extraction with comprehensive filtering
             def extract_requirements_with_llm(state: AgentState) -> AgentState:
                 if not state.get("user_requirements"):
-                    state["user_requirements"] = {}
+                    state["user_requirements"] = {
+                        "budget": None,
+                        "location": None
+                    }
                 
                 # Check if user is asking for property details
                 query_lower = state["query"].lower()
@@ -415,6 +418,10 @@ class RealEstateAgent:
                 except Exception as e:
                     print(f"Error in LLM requirements extraction: {e}")
                 
+                if state["user_requirements"]:
+                    # Remove keys with None values to avoid arithmetic errors
+                    state["user_requirements"] = {k: v for k, v in state["user_requirements"].items() if v is not None}
+                
                 print("Updated requirements:", state["user_requirements"])
                 return state
             
@@ -467,12 +474,12 @@ class RealEstateAgent:
                 exact_df = df_copy.copy()
                 
                 # Budget filtering
-                if budget:
+                if budget is not None:
                     exact_df = exact_df[abs(exact_df['price'] - budget) <= 5000]  
-                elif budget_min or budget_max:
-                    if budget_min:
+                elif budget_min is not None or budget_max is not None:
+                    if budget_min is not None:
                         exact_df = exact_df[exact_df['price'] >= budget_min]
-                    if budget_max:
+                    if budget_max is not None:
                         exact_df = exact_df[exact_df['price'] <= budget_max]
                 
                 # Location filtering
@@ -486,7 +493,7 @@ class RealEstateAgent:
                     else:
                         exact_df = exact_df[location_filter]
                 
-                # Comprehensive filtering
+                # Comprehensive filtering - FIXED: Check for None values before arithmetic operations
                 filters = [
                     ('bedrooms', 'bedrooms', 0),
                     ('bathrooms', 'bathrooms', 0),
@@ -503,7 +510,7 @@ class RealEstateAgent:
                 ]
                 
                 for req_key, df_col, tolerance in filters:
-                    if req_key in requirements and df_col in exact_df.columns:
+                    if req_key in requirements and requirements[req_key] is not None and df_col in exact_df.columns:
                         value = requirements[req_key]
                         if tolerance is None:
                             # Exact match for categorical data
@@ -517,10 +524,10 @@ class RealEstateAgent:
                             # Exact numeric match
                             exact_df = exact_df[exact_df[df_col] == value]
                         else:
-                            # Tolerance-based numeric match
+                            # Tolerance-based numeric match - FIXED: Only if value is not None
                             exact_df = exact_df[abs(exact_df[df_col] - value) <= tolerance]
                 
-                # Range filtering
+                # Range filtering - FIXED: Check for None values
                 range_filters = [
                     ('bedrooms_min', 'bedrooms_max', 'bedrooms'),
                     ('bathrooms_min', 'bathrooms_max', 'bathrooms'),
@@ -529,9 +536,9 @@ class RealEstateAgent:
                 
                 for min_key, max_key, df_col in range_filters:
                     if df_col in exact_df.columns:
-                        if min_key in requirements:
+                        if min_key in requirements and requirements[min_key] is not None:
                             exact_df = exact_df[exact_df[df_col] >= requirements[min_key]]
-                        if max_key in requirements:
+                        if max_key in requirements and requirements[max_key] is not None:
                             exact_df = exact_df[exact_df[df_col] <= requirements[max_key]]
                 
                 # Get exact matches
@@ -559,20 +566,20 @@ class RealEstateAgent:
                         if not location_matched:
                             similar_df = similar_df.iloc[0:0]  
                     
-                    # Relaxed filtering for similar matches
+                    # Relaxed filtering for similar matches - FIXED: Check for None values
                     if not similar_df.empty:
                         # Budget with ±15% tolerance
-                        if budget:
+                        if budget is not None:
                             budget_min_sim = budget * 0.85
                             budget_max_sim = budget * 1.15
                             similar_df = similar_df[similar_df['price'].between(budget_min_sim, budget_max_sim)]
-                        elif budget_min or budget_max:
-                            if budget_min:
+                        elif budget_min is not None or budget_max is not None:
+                            if budget_min is not None:
                                 similar_df = similar_df[similar_df['price'] >= budget_min * 0.9]
-                            if budget_max:
+                            if budget_max is not None:
                                 similar_df = similar_df[similar_df['price'] <= budget_max * 1.1]
                         
-                        # Relaxed criteria for other filters
+                        # Relaxed criteria for other filters - FIXED: Check for None values
                         relaxed_filters = [
                             ('bedrooms', 'bedrooms', 1),
                             ('bathrooms', 'bathrooms', 1),
@@ -582,19 +589,19 @@ class RealEstateAgent:
                         ]
                         
                         for req_key, df_col, tolerance in relaxed_filters:
-                            if req_key in requirements and df_col in similar_df.columns:
+                            if req_key in requirements and requirements[req_key] is not None and df_col in similar_df.columns:
                                 value = requirements[req_key]
                                 if req_key == 'sqft_living':
-                                    # Percentage-based tolerance
+                                    # Percentage-based tolerance - FIXED: Only if value is not None
                                     min_val = value * (1 - tolerance)
                                     max_val = value * (1 + tolerance)
                                     similar_df = similar_df[similar_df[df_col].between(min_val, max_val)]
                                 else:
-                                    # Fixed tolerance
+                                    # Fixed tolerance - FIXED: Only if value is not None
                                     similar_df = similar_df[abs(similar_df[df_col] - value) <= tolerance]
                         
                         # Sort by price proximity to budget
-                        if budget and not similar_df.empty:
+                        if budget is not None and not similar_df.empty:
                             similar_df['price_diff'] = abs(similar_df['price'] - budget)
                             similar_df = similar_df.sort_values('price_diff')
                         
@@ -733,7 +740,7 @@ class RealEstateAgent:
                     state["contact_info"]["whatsapp"] = phone_match.group(0)
                 
                 return state
-            
+  
             # Enhanced response generation
             def generate_response(state: AgentState) -> AgentState:
                 # Format user requirements
@@ -742,24 +749,36 @@ class RealEstateAgent:
                     requirements = state["user_requirements"]
                     user_requirements_str = "Requirements collected:\n"
                     
-                    # Basic requirements
-                    if "budget" in requirements:
-                        user_requirements_str += f"- Budget: ${requirements['budget']:,.0f}\n"
-                    elif "budget_min" in requirements or "budget_max" in requirements:
-                        min_budget = requirements.get('budget_min', 'No min')
-                        max_budget = requirements.get('budget_max', 'No max')
-                        user_requirements_str += f"- Budget Range: ${min_budget} - ${max_budget}\n"
+                    # Basic requirements - FIXED: Check for None values before formatting
+                    budget = requirements.get("budget")
+                    budget_min = requirements.get('budget_min')
+                    budget_max = requirements.get('budget_max')
                     
-                    if "location" in requirements:
-                        user_requirements_str += f"- Location: {requirements['location']}\n"
-                    if "bedrooms" in requirements:
-                        user_requirements_str += f"- Bedrooms: {requirements['bedrooms']}\n"
-                    if "bathrooms" in requirements:
-                        user_requirements_str += f"- Bathrooms: {requirements['bathrooms']}\n"
-                    if "sqft_living" in requirements:
-                        user_requirements_str += f"- Square Footage: {requirements['sqft_living']} sq ft\n"
+                    if budget is not None:
+                        user_requirements_str += f"- Budget: ${budget:,.0f}\n"
+                    elif budget_min is not None or budget_max is not None:
+                        min_str = f"${budget_min:,.0f}" if budget_min is not None else 'No min'
+                        max_str = f"${budget_max:,.0f}" if budget_max is not None else 'No max'
+                        user_requirements_str += f"- Budget Range: {min_str} - {max_str}\n"
                     
-                    # Advanced filters
+                    # FIXED: Check for None values in other fields
+                    location = requirements.get("location")
+                    if location is not None:
+                        user_requirements_str += f"- Location: {location}\n"
+                    
+                    bedrooms = requirements.get("bedrooms")
+                    if bedrooms is not None:
+                        user_requirements_str += f"- Bedrooms: {bedrooms}\n"
+                    
+                    bathrooms = requirements.get("bathrooms")
+                    if bathrooms is not None:
+                        user_requirements_str += f"- Bathrooms: {bathrooms}\n"
+                    
+                    sqft_living = requirements.get("sqft_living")
+                    if sqft_living is not None:
+                        user_requirements_str += f"- Square Footage: {sqft_living} sq ft\n"
+                    
+                    # Advanced filters - FIXED: Check for None values
                     advanced_filters = {
                         'property_type': 'Property Type',
                         'year_built': 'Year Built',
@@ -776,15 +795,18 @@ class RealEstateAgent:
                     }
                     
                     for key, label in advanced_filters.items():
-                        if key in requirements:
-                            value = requirements[key]
+                        value = requirements.get(key)
+                        if value is not None:
                             if isinstance(value, bool):
-                                value = "Yes" if value else "No"
-                            user_requirements_str += f"- {label}: {value}\n"
+                                value_str = "Yes" if value else "No"
+                            else:
+                                value_str = str(value)
+                            user_requirements_str += f"- {label}: {value_str}\n"
                 
                 # Check if budget and location are present
-                has_budget = requirements.get("budget") or requirements.get("budget_min") or requirements.get("budget_max") if requirements else False
-                has_location = requirements.get("location") if requirements else False
+                requirements = state.get("user_requirements", {})
+                has_budget = requirements.get("budget") is not None or requirements.get("budget_min") is not None or requirements.get("budget_max") is not None
+                has_location = requirements.get("location") is not None
                 
                 # Format search results with budget/location check
                 search_results_str = ""
@@ -896,7 +918,7 @@ def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict
         "chat_history": [],
         "retrieved_documents": [],
         "response": "",
-        "user_requirements": {},
+        "user_requirements": {}, 
         "contact_info": {},
         "conversation_stage": "initial_greeting",
         "properties_shown": [],
@@ -1003,7 +1025,7 @@ def process_query(agent, query: str, chat_history: List[Dict[str, str]]) -> Dict
     except Exception as e:
         print(f"Error processing query with enhanced filtering: {e}")
         return {
-            "answer": "I apologize, but I encountered an error while searching our property database with your comprehensive criteria. Please try rephrasing your request or contact our support team.",
+            "answer": "I apologize, but I encountered an issues while searching our property database with your comprehensive criteria. Please try rephrasing your request or contact our support team.",
             "system_state": {
                 "type": "system",
                 "requirements": state.get("user_requirements", {}),
