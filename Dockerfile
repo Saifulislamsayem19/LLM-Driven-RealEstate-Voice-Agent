@@ -1,31 +1,20 @@
-FROM python:3.11-slim
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
-ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
-
-# System deps 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake \
-    libopenblas-dev libomp-dev \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Workdir
+# Set the working directory inside the container
 WORKDIR /app
 
-# Install Python deps
-COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt gunicorn
+# Copy the current directory contents into the container at /app
+COPY . /app/
 
-# Copy the app
-COPY . /app
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Spaces serve on 7860; expose and set env just in case
-ENV PORT=7860
+# Expose the port that FastAPI will run on
 EXPOSE 7860
 
-# Make FAISS/OpenMP behave well on small containers
-ENV OMP_NUM_THREADS=1
+# Set the environment variable for FastAPI
+ENV PYTHONUNBUFFERED=1
 
-# Start the FastAPI app via Gunicorn: module:variable -> app:app
-CMD ["gunicorn", "-k", "gthread", "--threads", "2", "-b", "0.0.0.0:7860", "app:app"]
+# Run the FastAPI app with Uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
