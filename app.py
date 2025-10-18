@@ -9,11 +9,25 @@ from contextlib import asynccontextmanager
 import uvicorn
 from pathlib import Path
 from dotenv import load_dotenv
+import sys
+import threading
+import time
+import signal
 from audio import audio_router
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
 from data_manager import USER_REQUIREMENTS_FILE
 
 load_dotenv()
+
+# Global variable to control restart
+RESTART_REQUESTED = False
+
+def restart_application():
+    """Restart the application completely"""
+    print("🔄 Restarting application with new API key...")
+    time.sleep(2)  # Give time for response to be sent
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
 
 # Initialize the agent instance
 agent = RealEstateAgent()
@@ -32,11 +46,53 @@ def init_chatbot():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize resources before the app starts and clean up after it shuts down."""
+    # Clear restart flag on startup
+    clear_restart_flag()
+    
     # Initialize chatbot
     if not init_chatbot():
         raise RuntimeError("Failed to initialize the chatbot")
+    
     yield
+    
     print("Shutting down...")
+
+def clear_restart_flag():
+    """Clear the restart flag from .env file"""
+    env_file_path = Path('.env')
+    if env_file_path.exists():
+        try:
+            with open(env_file_path, 'r') as env_file:
+                lines = env_file.readlines()
+            
+            # Remove any restart flags
+            with open(env_file_path, 'w') as env_file:
+                for line in lines:
+                    if not line.strip().startswith('APP_RESTART_PENDING='):
+                        env_file.write(line)
+        except Exception as e:
+            print(f"Warning: Could not clear restart flag: {e}")
+
+def set_restart_flag():
+    """Set restart flag in .env file"""
+    env_file_path = Path('.env')
+    env_vars = {}
+    
+    # Read existing environment variables
+    if env_file_path.exists():
+        with open(env_file_path, 'r') as env_file:
+            for line in env_file:
+                if '=' in line and not line.startswith('#'):
+                    key, value = line.strip().split('=', 1)
+                    env_vars[key] = value
+    
+    # Set restart flag
+    env_vars['APP_RESTART_PENDING'] = 'True'
+    
+    # Write back to .env file
+    with open(env_file_path, 'w') as env_file:
+        for key, value in env_vars.items():
+            env_file.write(f"{key}={value}\n")
 
 # Initialize FastAPI app
 app = FastAPI(title="Real Estate Assistant API", lifespan=lifespan)
@@ -131,6 +187,7 @@ async def property_summary():
 async def admin_panel(
     request: Request,
     success: bool = Query(False),
+    restarting: bool = Query(False),
     api_key: str = Form(None)
 ):
     """Admin panel for API key configuration - handles both GET and POST"""
@@ -151,39 +208,72 @@ async def admin_panel(
                                 key, value = line.strip().split('=', 1)
                                 env_vars[key] = value
                 
-                # Update OpenAI API key
+                # Update OpenAI API key and set restart flag
+                old_key = env_vars.get('OPENAI_API_KEY', '')
                 env_vars['OPENAI_API_KEY'] = api_key
-                os.environ['OPENAI_API_KEY'] = api_key
+                env_vars['APP_RESTART_PENDING'] = 'True'
                 
                 # Write back to .env file
                 with open(env_file_path, 'w') as env_file:
                     for key, value in env_vars.items():
                         env_file.write(f"{key}={value}\n")
                 
-                print(f"✅ OpenAI API key updated: {api_key[:10]}...")
+                # Update current environment
+                os.environ['OPENAI_API_KEY'] = api_key
                 
-                # Redirect with success parameter
-                return RedirectResponse(url="/api-@dmin?success=True", status_code=303)
+                print(f"✅ OpenAI API key updated from {old_key[:10]}... to {api_key[:10]}...")
+                
+                # Start restart in background thread
+                restart_thread = threading.Thread(target=restart_application)
+                restart_thread.daemon = True
+                restart_thread.start()
+                
+                # Show restarting message
+                return templates.TemplateResponse(
+                    "admin.html", 
+                    {
+                        "request": request, 
+                        "success": True,
+                        "restarting": True,
+                        "current_api_key": api_key
+                    }
+                )
+            else:
+                raise ValueError("API key cannot be empty")
             
         except Exception as e:
             print(f"❌ Error updating API key: {e}")
-            # On error, still show the form but with error state
+            current_api_key = os.getenv("OPENAI_API_KEY", "")
             return templates.TemplateResponse(
                 "admin.html", 
                 {
                     "request": request, 
                     "success": False,
-                    "error": str(e)
+                    "error": str(e),
+                    "current_api_key": current_api_key
                 }
             )
     
     # Handle GET request - show the form
     current_api_key = os.getenv("OPENAI_API_KEY", "")
+    
+    # Check if we just restarted
+    just_restarted = False
+    if not restarting:
+        env_file_path = Path('.env')
+        if env_file_path.exists():
+            with open(env_file_path, 'r') as env_file:
+                for line in env_file:
+                    if line.startswith('APP_RESTART_PENDING='):
+                        just_restarted = True
+                        break
+    
     return templates.TemplateResponse(
         "admin.html", 
         {
             "request": request, 
-            "success": success,
+            "success": success or just_restarted,
+            "restarting": restarting,
             "current_api_key": current_api_key
         }
     )
@@ -209,9 +299,7 @@ async def status():
         ]
     }
 
-    
 if __name__ == "__main__":
-   
     uvicorn.run(
         "app:app",
         host="0.0.0.0",

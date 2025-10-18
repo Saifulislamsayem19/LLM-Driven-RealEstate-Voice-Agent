@@ -63,6 +63,14 @@
             background-color: #d4edda;
             border-radius: 4px;
         }
+        .info-message {
+            color: #17a2b8;
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #d1ecf1;
+            border-radius: 4px;
+        }
         .current-key {
             background-color: #f8f9fa;
             padding: 8px;
@@ -79,37 +87,84 @@
             background-color: #f8d7da;
             border-radius: 4px;
         }
+        .restart-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Admin Panel</h1>
         
-        {% if success %}
-        <div class="success-message">✅ API key updated successfully!</div>
+        {% if restarting %}
+        <div class="info-message">
+            <div class="restart-indicator">
+                <div class="spinner"></div>
+                <span>🔄 Restarting application with new API key...</span>
+            </div>
+            <p style="font-size: 12px; margin-top: 10px;">
+                The application will restart completely. Please wait a moment and then refresh this page.
+            </p>
+        </div>
+        {% endif %}
+        
+        {% if success and not restarting %}
+        <div class="success-message">✅ API key updated successfully! Application has been restarted.</div>
         {% endif %}
         
         {% if error %}
         <div class="error-message">❌ Error: {{ error }}</div>
         {% endif %}
         
-        <form method="POST">
+        <form method="POST" {% if restarting %}onsubmit="return false;"{% endif %}>
             <div class="form-group">
                 <label for="api_key">OpenAI API Key:</label>
-                <input type="text" id="api_key" name="api_key" required placeholder="Enter your OpenAI API key">
+                <input type="text" id="api_key" name="api_key" required 
+                       placeholder="Enter your OpenAI API key"
+                       {% if restarting %}disabled{% endif %}>
                 <div class="current-key">
-                    Current: {{ current_api_key[:20] }}{% if current_api_key|length > 20 %}...{% endif %}
+                    Current: {% if current_api_key %}{{ current_api_key[:10] }}...{% else %}Not set{% endif %}
                 </div>
             </div>
-            <button type="submit">Update API Key</button>
+            <button type="submit" {% if restarting %}disabled style="background-color: #6c757d;"{% endif %}>
+                {% if restarting %}Restarting...{% else %}Update API Key & Restart{% endif %}
+            </button>
         </form>
+        
+        {% if restarting %}
+        <script>
+            // Auto-refresh after 5 seconds when restarting
+            setTimeout(() => {
+                window.location.href = "/api-@dmin?success=True";
+            }, 5000);
+        </script>
+        {% endif %}
+        
+        {% if success and not restarting %}
+        <script>
+            // Auto-hide success message after 5 seconds
+            setTimeout(() => {
+                const successMsg = document.querySelector('.success-message');
+                if (successMsg) successMsg.style.display = 'none';
+            }, 5000);
+        </script>
+        {% endif %}
     </div>
-    <script>
-        // Auto-hide success message after 5 seconds
-        setTimeout(() => {
-            const successMsg = document.querySelector('.success-message');
-            if (successMsg) successMsg.style.display = 'none';
-        }, 5000);
-    </script>
 </body>
 </html>
