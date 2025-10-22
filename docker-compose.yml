@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   realestatebot:
     build: .
@@ -7,14 +5,14 @@ services:
     ports:
       - "7860:7860"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}  # Use .env variables for sensitive data
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
-      - .:/app  # Mount current directory to /app inside the container
+      - .:/app
     depends_on:
-      - db  # If you have any database service, include it here
+      - db
     restart: always
 
-  db:  # Optional if you need a database like PostgreSQL, MySQL, etc.
+  db:
     image: postgres:13
     container_name: realestatebot_db
     environment:
