@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 import signal
+from pyngrok import ngrok
 from audio import audio_router
 from ai_agent import RealEstateAgent, process_query, convert_numpy_types
 from data_manager import USER_REQUIREMENTS_FILE
@@ -299,7 +300,18 @@ async def status():
         ]
     }
 
+def start_ngrok():
+    """Start ngrok tunnel and print public URL"""
+    public_url = ngrok.connect(7860) 
+    print("\n" + "="*50)
+    print(f"🌍 Public URL: {public_url}")
+    print("="*50 + "\n")
+
 if __name__ == "__main__":
+    # Start ngrok tunnel
+    start_ngrok()
+
+    # Run FastAPI
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
