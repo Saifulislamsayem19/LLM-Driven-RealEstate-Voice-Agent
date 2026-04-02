@@ -1,20 +1,24 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+FROM python:3.11-slim
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app/
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Copy requirements
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port that FastAPI will run on
+# Copy application
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs vector_db user_data
+
+# Expose port
 EXPOSE 7860
 
-# Set the environment variable for FastAPI
-ENV PYTHONUNBUFFERED=1
-
-# Run the FastAPI app with Uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Run application
+CMD ["python", "main.py"]
