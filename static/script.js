@@ -46,10 +46,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let isRecognizing = false;
     let audioPlayer = new Audio();
     let ttsEnabled = true;
+    let accumulatedTranscript = '';
+    let silenceTimeout = null;   
+    let userFocusedInput = false;
+    const SILENCE_DELAY = 10000;
     
     // Initialize speech recognition if available
     function initSpeechRecognition() {
-        // Check if browser supports speech recognition
         if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -57,59 +60,59 @@ document.addEventListener('DOMContentLoaded', function() {
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
-            let silenceTimeout;
-            const SILENCE_DELAY = 3000; // 3 seconds
-
             recognition.onstart = function() {
                 isRecognizing = true;
                 voiceButton.classList.add('recording');
                 voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
                 updateStatus('Listening...', 'processing');
-                
-                // Start silence timer
-                silenceTimeout = setTimeout(() => {
-                    stopRecognition();
-                }, SILENCE_DELAY);
+                clearTimeout(silenceTimeout);
+                silenceTimeout = setTimeout(stopRecognition, SILENCE_DELAY);
             };
 
             recognition.onresult = function(event) {
-                // Clear existing silence timer
                 clearTimeout(silenceTimeout);
-                
-                let interimTranscript = '';
-                let finalTranscript = '';
 
+                let interim = '';
+                let final = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
-                    }
+                    const t = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) final += t;
+                    else interim += t;
                 }
 
-                // Update input field with transcription
-                userInput.value = finalTranscript || interimTranscript;
-                userInput.dispatchEvent(new Event('input'));
+                // Prepend whatever was typed/spoken before this session started
+                const prefix = accumulatedTranscript ? accumulatedTranscript + ' ' : '';
+                userInput.value = prefix + (final || interim);
 
-                // Restart silence timer
-                silenceTimeout = setTimeout(() => {
-                    stopRecognition();
-                }, SILENCE_DELAY);
+                // Lock in final words so next interim doesn't erase them
+                if (final) {
+                    accumulatedTranscript = (prefix + final).trim();
+                }
+
+                userInput.dispatchEvent(new Event('input'));
+                silenceTimeout = setTimeout(stopRecognition, SILENCE_DELAY);
             };
 
             recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event.error);
-                stopRecognition();
+                clearTimeout(silenceTimeout);
+                isRecognizing = false;
+                voiceButton.classList.remove('recording');
+                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
                 updateStatus('Online', 'online');
             };
 
             recognition.onend = function() {
                 clearTimeout(silenceTimeout);
-                stopRecognition();
+                isRecognizing = false;
+                voiceButton.classList.remove('recording');
+                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
                 updateStatus('Online', 'online');
-                sendMessage();
 
+                if (userInput.value.trim() && !userFocusedInput) {  // ← only auto-send if user didn't click in
+                    sendMessage();
+                }
+                userFocusedInput = false;  // ← reset for next session
             };
 
             return true;
@@ -119,21 +122,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleSpeechRecognition() {
         if (!recognition) {
-            const initialized = initSpeechRecognition();
-            if (!initialized) {
+            if (!initSpeechRecognition()) {
                 alert('Speech recognition is not supported in this browser.');
                 return;
             }
         }
-
         if (isRecognizing) {
             stopRecognition();
-            voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-            voiceButton.classList.remove('recording');
         } else {
+            stopAudio();                                  // ← abort TTS before listening
+            accumulatedTranscript = userInput.value.trim(); // ← preserve existing text
             startRecognition();
-            voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
-            voiceButton.classList.add('recording');
         }
     }
 
@@ -155,12 +154,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function stopRecognition() {
+        clearTimeout(silenceTimeout);    // ← now works because silenceTimeout is in scope
         if (recognition && isRecognizing) {
-            recognition.stop();
-            isRecognizing = false;
-            voiceButton.classList.remove('recording');
-            voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-            clearTimeout(silenceTimeout);
+            recognition.stop();          // triggers onend which resets UI flags
         }
     }
     
@@ -177,29 +173,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function playTTS(text) {
         if (!ttsEnabled) return;
-        
+
+        // Stop whatever is currently playing before fetching new audio
+        audioPlayer.pause();
+        audioPlayer.removeAttribute('src');
+        audioPlayer.load();
+        audioPlayerContainer.classList.add('hidden');
+
         fetch('/audio/tts', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
         })
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             if (data.audio) {
-                const audioUrl = `data:audio/mp3;base64,${data.audio}`;
-                audioPlayer.src = audioUrl;
+                audioPlayer.src = 'data:audio/mp3;base64,' + data.audio;
                 audioPlayer.load();
                 audioPlayer.currentTime = 0;
                 showAudioPlayer();
                 audioPlayer.play().catch(e => console.error('Audio playback error:', e));
             }
-
         })
-        .catch(error => {
-            console.error('TTS error:', error);
-        });
+        .catch(error => console.error('TTS error:', error));
     }
     
     function showAudioPlayer() {
@@ -219,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updatePlayButton();
             setTimeout(() => {
                 audioPlayerContainer.classList.add('hidden');
-            }, 1000);
+            }, 1500);
         };
         
         // Update progress bar during playback
@@ -295,6 +291,18 @@ document.addEventListener('DOMContentLoaded', function() {
             sendMessage();
         });
     });
+
+    userInput.addEventListener('mousedown', function() {
+        if (isRecognizing) {
+            userFocusedInput = true;
+        }
+    });
+
+    userInput.addEventListener('touchstart', function() {
+        if (isRecognizing) {
+            userFocusedInput = true;
+        }
+    });
     
     // Functions
     function sendMessage() {
@@ -307,6 +315,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Stop any current audio playback
         stopAudio();
+        accumulatedTranscript = '';   // ← reset so next session starts clean
+        userFocusedInput = false;
         
         // Get current time for message timestamp
         const now = new Date();
