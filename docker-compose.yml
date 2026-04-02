@@ -1,27 +1,16 @@
+version: '3.8'
+
 services:
-  realestatebot:
+  real-estate-app:
     build: .
-    container_name: realestatebot
     ports:
       - "7860:7860"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEBUG=False
     volumes:
-      - .:/app
-    depends_on:
-      - db
-    restart: always
-
-  db:
-    image: postgres:13
-    container_name: realestatebot_db
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: realestatebot_db
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    restart: always
-
-volumes:
-  db_data:
+      - ./dataset:/app/dataset
+      - ./vector_db:/app/vector_db
+      - ./user_data:/app/user_data
+      - ./logs:/app/logs
+    restart: unless-stopped
