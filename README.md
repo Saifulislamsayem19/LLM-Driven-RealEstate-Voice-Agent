@@ -367,3 +367,6 @@ For production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
 **Project:** LLM-Driven Real Estate Voice Agent  
 **Author:** Saiful Islam Sayem  
 **Repository:** [GitHub](https://github.com/Saifulislamsayem19/LLM-Driven-RealEstate-Voice-Agent)**
+
+**Built with ❤️ for the future of real estate technology**
+
