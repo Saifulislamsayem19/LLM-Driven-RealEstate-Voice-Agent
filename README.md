@@ -81,8 +81,8 @@ This project provides a robust platform to build intelligent conversational agen
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/Saifulislamsayem19/LLM-Driven-RealEstate-Voice-Agent.git
+cd LLM-Driven-RealEstate-Voice-Agent
 ```
 
 ### 2. Create and activate a virtual environment
@@ -246,12 +246,6 @@ real-estate-ai-agent/
 ├── requirements.txt     # Python dependencies
 └── README.md           # This file
 ```
-
-### Adding New Features
-1. Extend the `AgentState` TypedDict for new state variables
-2. Add processing nodes to the LangGraph workflow
-3. Update the conversation flow in `decide_next_action`
-4. Implement new API endpoints in `app.py`
 
 ## 📈 **Performance Metrics**
 
