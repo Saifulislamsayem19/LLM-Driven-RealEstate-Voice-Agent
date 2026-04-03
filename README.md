@@ -1,3 +1,13 @@
+---
+title: LLM Driven Real Estate Voice Agent
+emoji: 🏡
+colorFrom: blue
+colorTo: green
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # Real Estate AI Agent 🏠
 
 An advanced AI assistant framework leveraging LangGraph for workflow orchestration, powerful Large Language Models (LLMs), and Retrieval-Augmented Generation (RAG) for context-aware responses, combined with seamless Speech-to-Text (STT) and Text-to-Speech (TTS) features.
