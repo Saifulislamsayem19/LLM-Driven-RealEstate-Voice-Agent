@@ -1,16 +1,25 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  real-estate-app:
+  homefind-ai:
     build: .
+    image: homefind-ai:latest
+    container_name: homefind-ai
+    restart: unless-stopped
     ports:
       - "7860:7860"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DEBUG=False
+      - DEBUG=false
+      - LOG_LEVEL=INFO
     volumes:
-      - ./dataset:/app/dataset
+      # Persist generated artefacts outside the container
       - ./vector_db:/app/vector_db
       - ./user_data:/app/user_data
-      - ./logs:/app/logs
-    restart: unless-stopped
+      - ./dataset:/app/dataset:ro   # dataset is read-only
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/properties/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
