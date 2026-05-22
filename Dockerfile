@@ -1,24 +1,22 @@
 FROM python:3.11-slim
 
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+WORKDIR /app
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
+# Copy project
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p logs vector_db user_data
+# Create runtime directories
+RUN mkdir -p vector_db user_data
 
-# Expose port
 EXPOSE 7860
 
-# Run application
 CMD ["python", "main.py"]
