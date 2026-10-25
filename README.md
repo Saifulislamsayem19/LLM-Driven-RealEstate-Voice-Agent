@@ -3,8 +3,8 @@ title: LLM Driven Real Estate Voice Agent
 emoji: 🏡
 colorFrom: blue
 colorTo: green
-sdk: gradio
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 ---
 # LLM-Driven Real Estate Voice Agent
