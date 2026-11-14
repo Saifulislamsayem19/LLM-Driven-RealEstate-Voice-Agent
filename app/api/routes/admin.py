@@ -86,6 +86,7 @@ async def admin_panel(
             threading.Thread(target=_restart_application, daemon=True).start()
 
             return templates.TemplateResponse(
+                request,
                 "admin.html",
                 {"request": request, "success": True, "restarting": True, "current_api_key": api_key},
             )
@@ -93,6 +94,7 @@ async def admin_panel(
         except Exception as exc:
             current_api_key = os.getenv("OPENAI_API_KEY", "")
             return templates.TemplateResponse(
+                request,
                 "admin.html",
                 {"request": request, "success": False, "error": str(exc), "current_api_key": current_api_key},
             )
@@ -105,6 +107,7 @@ async def admin_panel(
         just_restarted = env_vars.get("APP_RESTART_PENDING") == "True"
 
     return templates.TemplateResponse(
+        request,
         "admin.html",
         {
             "request": request,

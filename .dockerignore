@@ -1,0 +1,22 @@
+# Secrets — pass OPENAI_API_KEY via environment instead
+.env
+
+# Local environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Generated at runtime
+vector_db/
+
+# Not needed in the image
+.git/
+.github/
+tests/
+*.md
+
+# User-submitted data (contains contact details)
+user_data/

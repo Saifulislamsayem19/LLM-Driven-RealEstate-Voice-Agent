@@ -80,7 +80,7 @@ This project provides a comprehensive platform for building intelligent conversa
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11 or higher (3.14 recommended)
 - OpenAI API key with GPT and TTS/Whisper access
 - Minimum 4GB RAM (for vector operations and model loading)
 - pip package manager

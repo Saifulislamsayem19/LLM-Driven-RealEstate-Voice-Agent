@@ -279,7 +279,7 @@ User Query + Retrieved Context → LLM → Enhanced Response
 
 ### Backend Framework
 - **FastAPI/Flask**: Web framework
-- **Python 3.8+**: Programming language
+- **Python 3.11+** (3.14 recommended): Programming language
 
 ### AI/ML Stack
 - **LangChain**: LLM orchestration framework

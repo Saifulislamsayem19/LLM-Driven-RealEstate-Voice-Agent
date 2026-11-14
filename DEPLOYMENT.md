@@ -5,6 +5,8 @@
 
 ### 1. Installation
 
+Requires Python 3.11+ (3.14 recommended; the Docker image uses 3.14).
+
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -121,7 +123,7 @@ sudo systemctl status real-estate
 ### Health Check
 
 ```bash
-curl http://localhost:7860/health
+curl http://localhost:7860/status
 ```
 
 ### Logs
@@ -205,7 +207,6 @@ Use load balancer with multiple instances:
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
 services:
   app:
     image: real-estate-assistant

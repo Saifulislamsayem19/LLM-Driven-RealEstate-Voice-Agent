@@ -13,7 +13,7 @@ router = APIRouter(tags=["chat"])
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return request.app.state.templates.TemplateResponse("index.html", {"request": request})
+    return request.app.state.templates.TemplateResponse(request, "index.html", {"request": request})
 
 
 @router.post("/ask")
