@@ -277,14 +277,28 @@ document.addEventListener('DOMContentLoaded', function() {
         this.style.height = (this.scrollHeight > maxHeight ? maxHeight : this.scrollHeight) + 'px';
     });
     
-    // Focus input on page load
-    userInput.focus();
-    
+    // Focus input on page load (not on touch devices, where it would pop up the keyboard)
+    if (!window.matchMedia('(pointer: coarse)').matches) {
+        userInput.focus();
+    }
+
     clearButton.addEventListener('click', clearChat);
-    
+
+    // Sidebar drawer (small screens)
+    function setSidebarOpen(open) {
+        document.body.classList.toggle('sidebar-open', open);
+        menuButton.setAttribute('aria-expanded', String(open));
+    }
+    menuButton.addEventListener('click', () => setSidebarOpen(!document.body.classList.contains('sidebar-open')));
+    sidebarBackdrop.addEventListener('click', () => setSidebarOpen(false));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') setSidebarOpen(false);
+    });
+
     // Suggestion buttons
     suggestionButtons.forEach(button => {
         button.addEventListener('click', function() {
+            setSidebarOpen(false);
             const query = this.getAttribute('data-query');
             userInput.value = query;
             userInput.dispatchEvent(new Event('input')); // Trigger height adjustment

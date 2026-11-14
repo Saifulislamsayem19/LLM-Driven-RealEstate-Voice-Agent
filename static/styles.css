@@ -10,6 +10,7 @@ body {
     background-color: #f8fafc;
     color: #1e293b;
     height: 100vh;
+    height: 100dvh; /* visible height on mobile browsers (excludes the address bar) */
     overflow: hidden;
 }
 
@@ -17,6 +18,7 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    height: 100dvh;
     width: 100%;
 }
 
@@ -216,6 +218,25 @@ body {
     flex-direction: column;
     background-color: #f8fafc;
     position: relative;
+    min-width: 0;  /* let wide content scroll instead of stretching the layout */
+    min-height: 0;
+}
+
+.menu-btn {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    color: #1e293b;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.sidebar-backdrop {
+    display: none;
 }
 
 /* Chat Header */
@@ -508,6 +529,7 @@ body {
 /* Voice Recording UI */
 .voice-btn {
     position: relative;
+    flex-shrink: 0;
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -655,6 +677,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
+    min-height: 36px;
     border-radius: 16px;
     border: 1px solid #ddd;
     background: none;
@@ -689,8 +712,8 @@ body {
 }
 
 .play-pause-btn {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background-color: #1a73e8;
     color: white;
@@ -984,77 +1007,151 @@ body {
     }
 }
 
-@media (max-width: 768px) {
-    .app-container {
-        flex-direction: column;
+/* Wide tables in bot replies scroll sideways inside the bubble */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    margin: 15px 0;
+}
+
+.table-scroll table {
+    margin: 0;
+    min-width: 100%;
+    width: max-content;
+}
+
+.message-body th,
+.message-body td {
+    white-space: nowrap;
+}
+
+/* Tablets, phones, and short landscape phones: sidebar becomes a slide-out drawer */
+@media (max-width: 768px), (max-height: 500px) and (orientation: landscape) {
+    .menu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
-    
+
     .sidebar {
-        width: 100%;
-        height: auto;
-        max-height: 270px;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: min(85vw, 320px);
+        z-index: 30;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        padding-left: env(safe-area-inset-left);
     }
-    
-    .sidebar-content {
-        display: flex;
-        flex-direction: row;
-        gap: 15px;
-        padding: 15px;
+
+    .sidebar-open .sidebar {
+        transform: translateX(0);
     }
-    
-    .stats-container, .suggestion-container {
-        flex: 1;
-        margin-bottom: 0;
-        max-height: 190px;
-        overflow-y: auto;
+
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 25;
+        background: rgba(15, 23, 42, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
     }
-    
+
+    .sidebar-open .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .chat-header {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    .header-left {
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .chat-header h2 {
+        font-size: 16px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chat-container {
+        padding: 16px 12px;
+    }
+
+    .messages {
+        gap: 16px;
+    }
+
     .message {
-        max-width: 90%;
+        max-width: 100%;
+    }
+
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        margin-right: 8px;
+        font-size: 13px;
+    }
+
+    .message.user .message-avatar {
+        margin-left: 8px;
+    }
+
+    .message-content {
+        padding: 12px 14px;
+        min-width: 0;
+    }
+
+    .input-container {
+        padding: 10px 12px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    #user-input {
+        font-size: 16px; /* below 16px, iOS Safari zooms in on focus */
+        padding: 12px 14px;
+    }
+
+    .voice-controls {
+        margin-top: 6px;
+        padding: 6px 0 0;
     }
 }
 
+/* Phones */
 @media (max-width: 576px) {
-    .sidebar-content {
-        flex-direction: column;
-        max-height: 250px;
+    .clear-btn {
+        padding: 10px 12px;
     }
-    
-    .stats-container {
-        margin-bottom: 15px;
+
+    .clear-btn .btn-label {
+        display: none;
     }
-    
-    .stat-card {
-        padding: 10px;
+
+    .status-badge {
+        padding: 4px 8px;
+        font-size: 11px;
+        white-space: nowrap;
     }
-    
-    .stat-value {
-        font-size: 16px;
+
+    .message-avatar {
+        display: none; /* more room for text; names in the bubble header identify the sender */
     }
-    
-    .message {
-        max-width: 95%;
-    }
-    
-    .chat-header {
-        padding: 12px 15px;
-    }
-    
-    .message-content {
-        padding: 15px;
-    }
-    
-    .input-container {
-        padding: 15px;
-    }
-    
-    #user-input {
-        padding: 14px 50px 14px 15px;
-    }
-    
-    .send-btn {
-        width: 38px;
-        height: 38px;
+
+    .send-btn,
+    .voice-btn {
+        width: 44px;
+        height: 44px;
     }
 }
 
@@ -1085,16 +1182,6 @@ body {
 @media (max-width: 576px) {
     .input-wrapper {
         gap: 8px;
-    }
-    
-    #user-input {
-        padding: 14px 15px;
-    }
-    
-    .voice-btn,
-    .send-btn {
-        width: 38px;
-        height: 38px;
     }
 }
 

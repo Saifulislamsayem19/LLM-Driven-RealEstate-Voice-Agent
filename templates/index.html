@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a8a">
     <title>HomeHelper - Real Estate Assistant</title>
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -12,7 +13,7 @@
 <body>
     <div class="app-container">
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="logo-container">
                 <div class="logo-icon">
                     <i class="fas fa-home"></i>
@@ -76,12 +77,16 @@
                 <span><i class="fas fa-robot"></i> Powered by LangGraph, OpenAI & Groq</span>
             </div>
         </div>
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
         <!-- Main Content -->
         <div class="main-content">
             <!-- Chat Header -->
             <div class="chat-header">
                 <div class="header-left">
+                    <button id="menu-btn" class="menu-btn" aria-label="Show property stats and suggestions" aria-controls="sidebar" aria-expanded="false">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <h2>Real Estate Assistant</h2>
                     <span class="status-badge" id="status-badge">
                         <i class="fas fa-circle"></i> 
@@ -89,8 +94,8 @@
                     </span>
                 </div>
                 <div class="chat-tools">
-                    <button id="clear-chat" class="clear-btn">
-                        <i class="fas fa-trash"></i> Clear Chat
+                    <button id="clear-chat" class="clear-btn" aria-label="Clear chat">
+                        <i class="fas fa-trash"></i> <span class="btn-label">Clear Chat</span>
                     </button>
                 </div>
             </div>
@@ -118,11 +123,11 @@
             <!-- Input Area -->
             <div class="input-container">
                 <div class="input-wrapper">
-                    <input type="text" id="user-input" placeholder="Ask me about real estate properties...">
+                    <input type="text" id="user-input" placeholder="Ask me about real estate properties..." maxlength="2000" autocomplete="off" aria-label="Message">
                     <button id="voice-btn" class="voice-btn" title="Voice Input">
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button id="send-btn" class="send-btn">
+                    <button id="send-btn" class="send-btn" aria-label="Send">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
@@ -132,7 +137,7 @@
                         <span>Auto-Read Responses</span>
                     </button>
                     <div id="audio-player-container" class="audio-player-container hidden">
-                        <button id="play-pause-btn" class="play-pause-btn">
+                        <button id="play-pause-btn" class="play-pause-btn" aria-label="Play or pause">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="progress-container">
