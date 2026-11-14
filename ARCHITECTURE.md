@@ -216,7 +216,7 @@ AgentState (TypedDict):
 Property Data
      │
      ▼
-Text Embedding (OpenAI ada-002)
+Text Embedding (OpenAI text-embedding-3-small, or local bge-small fallback)
      │
      ▼
 Vector Storage (FAISS Index)

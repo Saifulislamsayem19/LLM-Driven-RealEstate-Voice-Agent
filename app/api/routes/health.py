@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.services.agent import agent
 from app.core.config import settings
+from app.services.providers import active_providers
 
 router = APIRouter(tags=["health"])
 
@@ -14,10 +15,12 @@ async def status():
     if agent.df is None or agent.vector_store is None or agent.chain is None:
         raise HTTPException(status_code=503, detail="System initialising")
 
+    providers = active_providers()
     return {
         "status": "ok",
         "database_size": len(agent.df),
-        "model": settings.OPENAI_CHAT_MODEL,
+        "model": settings.OPENAI_CHAT_MODEL if providers["chat"] == "openai" else settings.GROQ_CHAT_MODEL,
+        "providers": providers,
         "retrieval_method": "Vector-based retrieval with FAISS",
         "features": [
             "Conversational responses",

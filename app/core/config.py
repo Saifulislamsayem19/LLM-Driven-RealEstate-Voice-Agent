@@ -52,11 +52,24 @@ class Settings(BaseSettings):
 
     # ── External services ────────────────────────────────────────────────────
     OPENAI_API_KEY: str = ""
-    OPENAI_CHAT_MODEL: str = "gpt-3.5-turbo-16k"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-ada-002"
-    OPENAI_TTS_MODEL: str = "tts-1"
-    OPENAI_TTS_VOICE: str = "alloy"
-    OPENAI_STT_MODEL: str = "whisper-1"
+    OPENAI_CHAT_MODEL: str = "gpt-6-luna"
+    # gpt-6-luna is a reasoning model (no temperature). Set empty for a non-reasoning model to use LLM_TEMPERATURE.
+    OPENAI_REASONING_EFFORT: str = "low"  # none | low | medium | high
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_TTS_MODEL: str = "gpt-4o-mini-tts"  # OpenAI shuts down all /audio/speech models on 2027-01-06; Groq TTS takes over
+    OPENAI_TTS_VOICE: str = "marin"
+    OPENAI_STT_MODEL: str = "gpt-transcribe"
+
+    # Fallback when the OpenAI key is missing / expired (key: https://console.groq.com/keys)
+    GROQ_API_KEY: str = ""
+    GROQ_CHAT_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_REASONING_EFFORT: str = "low"  # low | medium | high
+    GROQ_STT_MODEL: str = "whisper-large-v3-turbo"
+    GROQ_TTS_MODEL: str = "canopylabs/orpheus-v1-english"
+    GROQ_TTS_VOICE: str = "hannah"  # autumn, diana, hannah, austin, daniel, troy
+
+    # Groq has no embeddings API, so the fallback embeds locally (downloaded on first use)
+    LOCAL_EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
 
     # ── Server ───────────────────────────────────────────────────────────────
     HOST: str = "0.0.0.0"

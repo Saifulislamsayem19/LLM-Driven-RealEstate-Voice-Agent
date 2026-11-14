@@ -28,6 +28,9 @@ cp .env.example .env
 
 # Edit .env and add your OpenAI API key
 OPENAI_API_KEY=sk-your-key-here
+
+# Optional fallback if the OpenAI key stops working (https://console.groq.com/keys)
+GROQ_API_KEY=gsk-your-key-here
 ```
 
 ### 3. Run Application
@@ -58,6 +61,7 @@ docker build -t real-estate-assistant .
 docker run -d \
   -p 7860:7860 \
   -e OPENAI_API_KEY=your-key \
+  -e GROQ_API_KEY=your-groq-key \
   -v $(pwd)/dataset:/app/dataset \
   -v $(pwd)/vector_db:/app/vector_db \
   --name real-estate-app \
@@ -214,6 +218,7 @@ services:
       replicas: 3
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
   
   nginx:
     image: nginx:alpine

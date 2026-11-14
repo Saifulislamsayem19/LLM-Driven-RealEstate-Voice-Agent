@@ -19,9 +19,8 @@ import pandas as pd
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
-
 from app.core.config import settings
+from app.services.providers import get_embeddings
 
 
 # ── Type conversion helper ────────────────────────────────────────────────────
@@ -159,13 +158,13 @@ def setup_vector_db(
     if df is None:
         return None, None
 
+    embeddings, index_tag = get_embeddings()
     db_hash = _get_db_hash(file_mtime)
-    db_path = str(settings.VECTOR_DB_DIR / f"faiss_index_{db_hash}")
+    db_path = str(settings.VECTOR_DB_DIR / f"faiss_index_{index_tag}_{db_hash}")
 
     if os.path.exists(db_path):
         print(f"Loading existing vector database from {db_path}")
         try:
-            embeddings = OpenAIEmbeddings()
             vector_store = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
             print("Vector database loaded successfully!")
             return df, vector_store
@@ -190,7 +189,6 @@ def setup_vector_db(
         texts.extend(splitter.split_documents([doc]))
 
     print(f"Total chunks to process: {len(texts)}")
-    embeddings = OpenAIEmbeddings()
     batch_size = settings.VECTOR_BATCH_SIZE
     batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
 

@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.audio) {
-                audioPlayer.src = 'data:audio/mp3;base64,' + data.audio;
+                audioPlayer.src = 'data:' + (data.mime_type || 'audio/mpeg') + ';base64,' + data.audio;
                 audioPlayer.load();
                 audioPlayer.currentTime = 0;
                 showAudioPlayer();

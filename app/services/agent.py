@@ -1,12 +1,12 @@
 import re
 import json
 from typing import Dict, List, Any, Optional, TypedDict
-from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import Document
 from app.utils.data_manager import load_and_preprocess_data, setup_vector_db, save_user_requirements, convert_numpy_types
 from app.models.schemas import AgentState
+from app.services.providers import get_chat_model
 
 class RealEstateAgent:
     def __init__(self):
@@ -202,11 +202,8 @@ class RealEstateAgent:
         try:
             print("Setting up language model and chain...")
             
-            # Initialize the language model
-            self.llm = ChatOpenAI(
-                model_name="gpt-3.5-turbo-16k",
-                temperature=0.3
-            )
+            # Initialize the language model (OpenAI, falling back to Groq)
+            self.llm = get_chat_model()
             
             # System template for conversation
             system_template = """You are a professional AI real estate agent assistant named HomeFind AI. 

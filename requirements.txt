@@ -21,6 +21,9 @@ langchain-core==0.3.86
 langchain-openai==0.3.35
 langchain-community==0.3.31
 langgraph==0.6.11
+# Fallback when OpenAI is unavailable: Groq for chat/speech, FastEmbed for local embeddings
+langchain-groq==0.3.8
+fastembed==0.9.1
 faiss-cpu==1.15.1
 
 # Data 
