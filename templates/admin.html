@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - API Key Configuration</title>
+    {% if restarting %}<meta http-equiv="refresh" content="5;url=/api-@dmin?success=True">{% endif %}
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -62,6 +63,10 @@
             padding: 10px;
             background-color: #d4edda;
             border-radius: 4px;
+            animation: fade-out 0.5s ease 5s forwards;
+        }
+        @keyframes fade-out {
+            to { opacity: 0; visibility: hidden; }
         }
         .info-message {
             color: #17a2b8;
@@ -132,14 +137,14 @@
         <div class="error-message">❌ Error: {{ error }}</div>
         {% endif %}
         
-        <form method="POST" {% if restarting %}onsubmit="return false;"{% endif %}>
+        <form method="POST">
             <div class="form-group">
                 <label for="api_key">OpenAI API Key:</label>
                 <input type="text" id="api_key" name="api_key" required 
                        placeholder="Enter your OpenAI API key"
                        {% if restarting %}disabled{% endif %}>
                 <div class="current-key">
-                    Current: {% if current_api_key %}{{ current_api_key[:10] }}...{% else %}Not set{% endif %}
+                    Current: {% if current_api_key %}{{ current_api_key }}{% else %}Not set{% endif %}
                 </div>
             </div>
             <button type="submit" {% if restarting %}disabled style="background-color: #6c757d;"{% endif %}>
@@ -147,24 +152,6 @@
             </button>
         </form>
         
-        {% if restarting %}
-        <script>
-            // Auto-refresh after 5 seconds when restarting
-            setTimeout(() => {
-                window.location.href = "/api-@dmin?success=True";
-            }, 5000);
-        </script>
-        {% endif %}
-        
-        {% if success and not restarting %}
-        <script>
-            // Auto-hide success message after 5 seconds
-            setTimeout(() => {
-                const successMsg = document.querySelector('.success-message');
-                if (successMsg) successMsg.style.display = 'none';
-            }, 5000);
-        </script>
-        {% endif %}
     </div>
 </body>
 </html>

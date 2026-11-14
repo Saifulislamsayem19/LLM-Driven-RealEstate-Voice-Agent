@@ -35,8 +35,10 @@ def test_requirements_handles_blank_cells(client, tmp_path, monkeypatch):
     csv = tmp_path / "reqs.csv"
     csv.write_text("name,budget\nAlice,500000\nBob,\n")
     monkeypatch.setattr(type(settings), "USER_REQUIREMENTS_FILE", property(lambda self: csv))
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin")
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD", "pw")
 
-    response = client.get("/requirements")
+    response = client.get("/requirements", auth=("admin", "pw"))
     assert response.status_code == 200
     assert response.json()["requirements"] == [
         {"name": "Alice", "budget": 500000.0},

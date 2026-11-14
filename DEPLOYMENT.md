@@ -47,7 +47,7 @@ uvicorn main:app --host 0.0.0.0 --port 7860 --reload
 
 - **Web Interface**: http://localhost:7860
 - **API Docs**: http://localhost:7860/docs
-- **Admin Panel**: http://localhost:7860/api-admin
+- **Admin Panel**: http://localhost:7860/api-@dmin (set `ADMIN_PASSWORD` first; log in as `admin`)
 
 ## Production Deployment
 

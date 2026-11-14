@@ -22,21 +22,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalProperties = document.getElementById('total-properties');
     const priceRange = document.getElementById('price-range');
     
-    // Add marked.js library for Markdown support
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js';
-    document.head.appendChild(script);
-    
-    // Add highlight.js for code syntax highlighting
-    const highlightCSS = document.createElement('link');
-    highlightCSS.rel = 'stylesheet';
-    highlightCSS.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/github.min.css';
-    document.head.appendChild(highlightCSS);
-    
-    const highlightJS = document.createElement('script');
-    highlightJS.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js';
-    document.head.appendChild(highlightJS);
-    
+    // Mobile sidebar drawer
+    const menuButton = document.getElementById('menu-btn');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+    // marked, DOMPurify and highlight.js are loaded (with SRI) in index.html.
+    // Links in bot replies open in a new tab without giving it access to this page.
+    if (typeof DOMPurify !== 'undefined') {
+        DOMPurify.addHook('afterSanitizeAttributes', function(node) {
+            if (node.tagName === 'A') {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+    }
+
     // Chat history
     let chatHistory = [];
     let isProcessing = false;
@@ -352,7 +352,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             // Remove typing indicator
             removeTypingIndicator();
-            
+
+            // Rate-limit / validation errors carry a `detail` message instead of an answer
+            if (typeof data.answer !== 'string') {
+                data = { answer: data.detail || 'Sorry, there was an error processing your request. Please try again.' };
+            }
+
             // Get current time for response timestamp
             const responseTime = new Date();
             const responseTimeStr = responseTime.getHours() + ':' + 
@@ -441,8 +446,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         messageContent.appendChild(messageHeader);
         
-        // Parse markdown for assistant messages only
-        if (role === 'assistant' && typeof marked !== 'undefined') {
+        // Parse markdown for assistant messages only. Never render it unsanitized: replies can
+        // echo user input, so raw HTML from the model could run scripts (XSS).
+        if (role === 'assistant' && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             const messageBody = document.createElement('div');
             messageBody.classList.add('message-body');
             
@@ -463,8 +469,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             // Render markdown
-            messageBody.innerHTML = marked.parse(content);
-            
+            messageBody.innerHTML = DOMPurify.sanitize(marked.parse(content));
+
+            // Let wide tables scroll sideways inside the bubble instead of overflowing small screens
+            messageBody.querySelectorAll('table').forEach(table => {
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('table-scroll');
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            });
+
             // Apply syntax highlighting to code blocks
             if (typeof hljs !== 'undefined') {
                 messageBody.querySelectorAll('pre code').forEach((block) => {

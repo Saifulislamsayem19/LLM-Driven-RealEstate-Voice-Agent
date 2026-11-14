@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from app.api.routes import audio, chat, admin, health
 from app.services.agent import agent
 from app.core.config import settings
+from app.core.security import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -51,13 +52,15 @@ def create_app() -> FastAPI:
     )
 
     # ── Middleware ──────────────────────────────────────────────────────────
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(SecurityHeadersMiddleware)
+    if settings.ALLOWED_ORIGINS:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.ALLOWED_ORIGINS,
+            allow_credentials=False,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+        )
 
     # ── Static files & templates ────────────────────────────────────────────
     app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")

@@ -74,7 +74,25 @@ class Settings(BaseSettings):
     # ── Server ───────────────────────────────────────────────────────────────
     HOST: str = "0.0.0.0"
     PORT: int = 7860
-    ALLOWED_ORIGINS: List[str] = ["*"]
+    # The web UI is served from the same origin, so no cross-origin access is needed by default
+    ALLOWED_ORIGINS: List[str] = []
+
+    # ── Security ─────────────────────────────────────────────────────────────
+    # Admin pages (/api-@dmin, /requirements) are disabled until ADMIN_PASSWORD is set
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = ""
+    RATE_LIMIT_CHAT_PER_MINUTE: int = 20  # per client IP; 0 disables
+    RATE_LIMIT_AUDIO_PER_MINUTE: int = 20
+    # Daily caps on messages that reach the LLM (refused messages are free); 0 disables
+    DAILY_CHAT_LIMIT_PER_IP: int = 150
+    DAILY_CHAT_LIMIT_GLOBAL: int = 3000
+    # Visitors who send this many jailbreak attempts are locked out for the given time
+    JAILBREAK_STRIKE_LIMIT: int = 5
+    JAILBREAK_LOCKOUT_MINUTES: int = 15
+    MAX_QUERY_CHARS: int = 2000
+    MAX_HISTORY_MESSAGES: int = 60
+    MAX_TTS_CHARS: int = 4000
+    MAX_AUDIO_UPLOAD_MB: int = 25
 
     # ── Agent behaviour ──────────────────────────────────────────────────────
     LLM_TEMPERATURE: float = 0.3
