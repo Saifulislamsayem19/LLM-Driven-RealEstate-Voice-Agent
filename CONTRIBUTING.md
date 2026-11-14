@@ -4,12 +4,11 @@
 ## Development Setup
 
 1. Fork and clone the repository
-2. Create a virtual environment
-3. Install development dependencies:
+2. Create a virtual environment with Python 3.11+ (3.14 recommended)
+3. Install dependencies (runtime and test tools are both in `requirements.txt`):
 
 ```bash
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  
 ```
 
 ## Code Standards
@@ -73,14 +72,14 @@ def search_properties(
 # Run all tests
 pytest
 
-# Run with coverage
-pytest --cov=src tests/
+# Run with coverage (requires: pip install pytest-cov)
+pytest --cov=app tests/
 
 # Run specific test file
-pytest tests/test_services.py
+pytest tests/unit/test_data_manager.py
 
 # Run specific test
-pytest tests/test_services.py::TestDataService::test_load_data
+pytest tests/integration/test_endpoints.py::test_ask_empty_query
 ```
 
 ### Writing Tests
@@ -211,69 +210,4 @@ Update relevant markdown files:
 - Open an issue
 - Email: saifulislamsayem19@gmail.com
 - Slack: #real-estate-dev
-"""
-"""
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# Environment Variables
-.env
-.env.local
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Logs
-logs/
-*.log
-
-# Database
-vector_db/
-user_data/
-*.db
-*.sqlite
-
-# Temporary files
-temp/
-*.tmp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Jupyter
-.ipynb_checkpoints/
 """

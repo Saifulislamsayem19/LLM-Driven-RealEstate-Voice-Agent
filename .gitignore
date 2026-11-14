@@ -1,12 +1,20 @@
 # Virtual environment
 .venv/
+venv/
+env/
 
 # Environment variables
 .env
+.env.local
 
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -14,4 +22,14 @@ __pycache__/
 # Vector database files
 vector_db/
 
+# Logs
+logs/
+*.log
 
+# IDE / OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# User-submitted data (contains contact details)
+user_data/
