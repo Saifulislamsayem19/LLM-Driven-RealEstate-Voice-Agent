@@ -1,692 +1,346 @@
 # API Documentation
 
-Complete API reference for the LLM-Driven RealEstate Voice Agent.
+API reference for the LLM-Driven RealEstate Voice Agent (HomeFind AI). Everything here matches the code in
+`app/api/routes/`. Interactive docs generated from the code are also served at `/docs` (Swagger) and `/redoc`.
 
 ## Table of Contents
 - [Overview](#overview)
-- [Authentication](#authentication)
 - [Base URL](#base-url)
-- [Common Headers](#common-headers)
-- [Rate Limiting](#rate-limiting)
-- [Error Handling](#error-handling)
+- [Authentication](#authentication)
+- [Limits](#limits)
+- [Errors](#errors)
 - [Endpoints](#endpoints)
-- [WebSocket Support](#websocket-support)
 - [Examples](#examples)
 
 ## Overview
 
-The Real Estate Voice Agent API provides endpoints for:
-- Natural language conversation
-- Speech-to-text conversion
-- Text-to-speech generation
-- Property search and recommendations
-- User requirement management
-- System health monitoring
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| `/` | GET | – | Web chat UI |
+| `/ask` | POST | – | Send a chat message, get the assistant's reply |
+| `/audio/transcribe` | POST | – | Speech-to-text |
+| `/audio/tts` | POST | – | Text-to-speech |
+| `/status` | GET | – | Readiness and active AI providers |
+| `/property_summary` | GET | – | Dataset statistics |
+| `/requirements` | GET | Admin | Saved user requirements and contact details |
+| `/api-@dmin` | GET, POST | Admin | Admin panel for updating the OpenAI key |
 
-**API Version:** 1.0  
-**Protocol:** REST  
-**Data Format:** JSON  
-**Character Encoding:** UTF-8
-
-## Authentication
-
-Currently, the API does not require authentication for demo purposes.
-
-**Production Implementation (Recommended):**
-```http
-Authorization: Bearer YOUR_API_TOKEN
-```
+**AI providers:** OpenAI is used while its key works. If it is missing, invalid or out of quota, chat and speech
+fall back to Groq and embeddings to a local model. `GET /status` shows which is active.
 
 ## Base URL
 
 ```
-Development: http://localhost:5000
-Production: https://api.yourdomain.com
+http://localhost:7860
 ```
 
-## Common Headers
+On Hugging Face Spaces, use the Space's `https://<user>-<space>.hf.space` URL.
 
-### Request Headers
-```http
-Content-Type: application/json
-Accept: application/json
-User-Agent: Your-App/1.0
-```
+## Authentication
 
-### Response Headers
-```http
-Content-Type: application/json
-X-Request-ID: unique-request-id
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1640995200
-```
+Public endpoints need no authentication. The web UI calls them from the same origin; cross-origin browser
+access is disabled unless `ALLOWED_ORIGINS` is set.
 
-## Rate Limiting
+Admin endpoints use **HTTP Basic** auth:
 
-**Limits:**
-- General API: 100 requests per minute per IP
-- Audio endpoints: 20 requests per minute per IP
-- Search endpoint: 50 requests per minute per IP
+- Username: `ADMIN_USERNAME` (default `admin`)
+- Password: `ADMIN_PASSWORD`
+- While `ADMIN_PASSWORD` is empty, admin endpoints return `404` (disabled).
+- Wrong or missing credentials return `401`.
+- `POST /api-@dmin` also requires an `Origin` or `Referer` header from the same host (blocks cross-site form posts).
 
-**Rate Limit Headers:**
-```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1640995200
-```
+## Limits
 
-**Rate Limit Exceeded Response:**
-```json
-{
-  "error": "RateLimitExceeded",
-  "message": "Too many requests. Please try again later.",
-  "retry_after": 60
-}
-```
+Rate limits are per client IP, over a sliding 60-second window. They are kept in memory, so they apply per
+running instance.
 
-## Error Handling
+| Limit | Default | Setting |
+|---|---|---|
+| `/ask` requests per minute | 20 | `RATE_LIMIT_CHAT_PER_MINUTE` (0 = off) |
+| `/audio/*` requests per minute | 20 | `RATE_LIMIT_AUDIO_PER_MINUTE` (0 = off) |
+| `/ask` messages per day that reach the AI, per IP | 150 | `DAILY_CHAT_LIMIT_PER_IP` (0 = off) |
+| `/ask` messages per day that reach the AI, all visitors | 3,000 | `DAILY_CHAT_LIMIT_GLOBAL` (0 = off) |
+| Jailbreak attempts before lockout | 5, then locked out for 15 minutes | `JAILBREAK_STRIKE_LIMIT`, `JAILBREAK_LOCKOUT_MINUTES` (0 = off) |
+| Message length (`query`) | 2,000 characters | `MAX_QUERY_CHARS` |
+| Chat history sent with a message | last 60 entries kept, rest ignored | `MAX_HISTORY_MESSAGES` |
+| Text-to-speech input | 4,000 characters (longer text is truncated) | `MAX_TTS_CHARS` |
+| Audio upload size | 25 MB | `MAX_AUDIO_UPLOAD_MB` |
 
-### Standard Error Response
+When a rate limit is exceeded the response is `429` with a `Retry-After` header (seconds).
+
+## Errors
+
+Errors use FastAPI's standard shape:
 
 ```json
-{
-  "error": "ErrorType",
-  "message": "Human-readable error message",
-  "error_code": "ERROR_CODE",
-  "details": {
-    "field": "additional context"
-  },
-  "timestamp": "2024-11-22T10:30:00Z",
-  "request_id": "req_123456"
-}
+{ "detail": "Too many requests — please wait a moment and try again." }
 ```
 
-### HTTP Status Codes
+`/ask` is the exception: it always returns an `answer` string the UI can display, even on errors.
 
-| Code | Meaning | Description |
-|------|---------|-------------|
-| 200 | OK | Request successful |
-| 201 | Created | Resource created |
-| 400 | Bad Request | Invalid input |
-| 401 | Unauthorized | Authentication required |
-| 403 | Forbidden | Access denied |
-| 404 | Not Found | Resource not found |
-| 429 | Too Many Requests | Rate limit exceeded |
-| 500 | Internal Server Error | Server error |
-| 503 | Service Unavailable | Service temporarily unavailable |
-
-### Common Error Codes
-
-| Error Code | Description |
-|------------|-------------|
-| `INVALID_INPUT` | Invalid request parameters |
-| `MISSING_FIELD` | Required field missing |
-| `PROPERTY_NOT_FOUND` | Property does not exist |
-| `AUDIO_PROCESSING_FAILED` | Audio processing error |
-| `LLM_ERROR` | Language model error |
-| `VECTOR_DB_ERROR` | Vector database error |
-| `RATE_LIMIT_EXCEEDED` | Too many requests |
+| Status | Meaning |
+|---|---|
+| 400 | Malformed request (invalid JSON, wrong field types, empty TTS text) |
+| 401 | Admin credentials missing or wrong |
+| 403 | Cross-site admin form post blocked |
+| 404 | Not found, or admin endpoints disabled (no `ADMIN_PASSWORD`) |
+| 413 | Message, or audio upload, too large |
+| 415 | Uploaded file is not audio |
+| 429 | Rate limit exceeded |
+| 500 | Internal error (details are logged on the server, not returned) |
+| 502 | Speech provider unavailable (both OpenAI and Groq failed) |
+| 503 | `/status` only: still starting up |
 
 ## Endpoints
 
-### 1. Conversation Endpoint
+### POST `/ask`
 
-**POST** `/ask`
+Send a user message and get the assistant's reply.
 
-Start or continue a conversation with the AI agent.
+**Request body**
 
-**Request Body:**
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `query` | string | Yes | The user's message (max 2,000 chars). An empty string returns a greeting. |
+| `chat_history` | array | No | Earlier messages, oldest first. See below. |
+
+`chat_history` entries are `{ "role": "user" | "assistant" | "system", "content": string }`. The server is
+stateless: to continue a conversation, send back the previous messages **and** the latest `system_state`
+as a `system` entry whose `content` is that object serialized as a JSON string. This carries the collected
+requirements, shown properties and conversation stage between turns.
+
 ```json
 {
-  "message": "I'm looking for a 3 bedroom house under $500,000",
-  "conversation_id": "conv_123456",
-  "user_id": "user_abc",
-  "context": {
-    "previous_requirements": {
-      "budget": 450000,
-      "location": "downtown"
-    }
+  "query": "Tell me more about the first one",
+  "chat_history": [
+    { "role": "user", "content": "3 bedroom house in Seattle under 600000" },
+    { "role": "assistant", "content": "Here are three matches..." },
+    { "role": "system", "content": "{\"type\":\"system\",\"requirements\":{\"budget\":600000,\"location\":\"Seattle\",\"bedrooms\":3},\"conversation_stage\":\"gathering_requirements\",\"properties_shown\":[0,3,8]}" }
+  ]
+}
+```
+
+**Response** `200`
+
+```json
+{
+  "answer": "Here are three 3-bedroom houses in Seattle that fit your budget...",
+  "system_state": {
+    "type": "system",
+    "requirements": { "budget": 600000, "location": "Seattle", "bedrooms": 3 },
+    "conversation_stage": "gathering_requirements",
+    "contact_info": {},
+    "properties_shown": [0, 3, 8],
+    "exact_matches": [
+      { "property_id": 0, "price": 376000.0, "bedrooms": 3.0, "bathrooms": 2.0, "sqft_living": 1340,
+        "city": "Seattle", "statezip": "WA 98103", "yr_built": 2008, "...": "..." }
+    ],
+    "similar_matches": [],
+    "needs_contact_info": false,
+    "no_properties_found": false,
+    "requirements_saved": false,
+    "selected_property_id": null
   }
 }
 ```
 
-**Parameters:**
+**Refused messages.** Before any AI call, `/ask` checks the message (English and Bengali). Questions
+unrelated to real estate (general knowledge, coding, recipes, sports, poems, translation, …) and jailbreak
+attempts ("ignore previous instructions", "show your system prompt", "you are now DAN", …) get a fixed reply
+instantly, at no AI cost. The response is `200` with `"blocked": "off_topic"` or `"blocked": "jailbreak"`
+and **no** `system_state` (keep the previous one):
+
+```json
+{ "answer": "I'm HomeFind AI, a real estate assistant, so I can only help with finding and comparing homes...", "blocked": "off_topic" }
+```
+
+Refused messages don't count toward the daily AI caps, but jailbreak attempts count as strikes (see Limits).
+Short follow-ups ("is it near a park?", "yes please") are accepted only after the assistant has replied in the chat.
+
+`answer` is Markdown (it may contain tables). Render it with a Markdown library and **sanitize the HTML**
+before inserting it into a page.
+
+Conversation stages: `initial_greeting`, `gathering_requirements`, `searching_properties`,
+`showing_exact_matches`, `showing_similar_matches`, `providing_details`, `no_matches_found`,
+`requesting_contact`, `contact_collected`, `follow_up`. The stage is updated at the start of each turn, so it can lag one message behind the reply.
+
+When the user shares an email or WhatsApp number and both a budget and a location are known, their
+requirements are saved to `user_data/user_requirements.csv` (`requirements_saved` becomes `true`).
+
+**Errors:** `400` invalid body, `413` message too long, `429` rate limited, `500` processing failed
+(the body still contains a user-friendly `answer`).
+
+---
+
+### POST `/audio/transcribe`
+
+Convert recorded speech to text (OpenAI `gpt-transcribe`, falling back to Groq `whisper-large-v3-turbo`).
+
+**Request:** `multipart/form-data` with one file field, `audio_file`. Supported formats include WebM/Opus,
+Ogg, MP4/M4A, MP3 and WAV (max 25 MB).
+
+**Response** `200`
+
+```json
+{ "text": "I am looking for a three-bedroom house in Seattle with a budget of $600,000." }
+```
+
+**Errors:** `413` too large, `415` not an audio file, `429` rate limited, `502` both providers failed.
+
+```bash
+curl -X POST http://localhost:7860/audio/transcribe -F "audio_file=@speech.webm;type=audio/webm"
+```
+
+---
+
+### POST `/audio/tts`
+
+Convert text to speech. Uses OpenAI (`gpt-4o-mini-tts`, voice `marin`) and falls back to Groq
+(`canopylabs/orpheus-v1-english`, voice `hannah`). Models and voices are set in `.env`
+(`OPENAI_TTS_*`, `GROQ_TTS_*`).
+
+**Request body**
+
+```json
+{ "text": "I found 3 properties that match your requirements" }
+```
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| message | string | Yes | User's text message |
-| conversation_id | string | No | Unique conversation identifier |
-| user_id | string | No | User identifier |
-| context | object | No | Additional context |
+|---|---|---|---|
+| `text` | string | Yes | Text to speak (truncated to 4,000 chars) |
 
-**Response:**
+**Response** `200`
+
 ```json
-{
-  "response": "I found 3 properties matching your criteria...",
-  "conversation_id": "conv_123456",
-  "next_action": "show_properties",
-  "properties": [
-    {
-      "property_id": "prop_001",
-      "price": 485000,
-      "bedrooms": 3,
-      "bathrooms": 2,
-      "sqft_living": 1800,
-      "location": "Downtown",
-      "match_type": "exact"
-    }
-  ],
-  "requirements_extracted": {
-    "budget": 500000,
-    "bedrooms": 3
-  },
-  "timestamp": "2024-11-22T10:30:00Z"
-}
+{ "audio": "<base64-encoded audio>", "mime_type": "audio/mpeg" }
 ```
 
-**cURL Example:**
+`mime_type` is `audio/mpeg` from OpenAI and `audio/wav` from Groq. Play it with
+`new Audio("data:" + mime_type + ";base64," + audio)`.
+
+**Errors:** `400` missing text, `429` rate limited, `502` both providers failed.
+
 ```bash
-curl -X POST http://localhost:5000/ask \
+curl -X POST http://localhost:7860/audio/tts \
   -H "Content-Type: application/json" \
-  -d '{
-    "message": "Show me houses with 3 bedrooms",
-    "conversation_id": "conv_123"
-  }'
+  -d '{"text": "Hello, how can I help you?"}'
 ```
 
 ---
 
-### 2. Speech-to-Text Endpoint
+### GET `/status`
 
-**POST** `/audio/transcribe`
+Readiness check. Returns `503` until the vector database and the LLM chain are ready (the first start can
+take a few minutes while the property index is built).
 
-Convert audio to text using OpenAI Whisper.
+**Response** `200`
 
-**Request:**
-- **Content-Type:** `multipart/form-data`
-- **File Parameter:** `audio`
+```json
+{
+  "status": "ok",
+  "database_size": 4090,
+  "model": "openai/gpt-oss-120b",
+  "providers": { "chat": "groq", "embeddings": "local", "speech": "groq" },
+  "retrieval_method": "Vector-based retrieval with FAISS",
+  "features": ["Conversational responses", "Semantic search with FAISS", "..."]
+}
+```
 
-**Supported Formats:**
-- WAV
-- MP3
-- M4A
-- WEBM
-- FLAC
+`providers` values: `openai`, `groq`, `local` (embeddings only), or `none` (no working key).
 
-**Max File Size:** 16MB
+---
 
-**Request Example:**
+### GET `/property_summary`
+
+Statistics for the property dataset (used by the sidebar in the web UI).
+
+**Response** `200`
+
+```json
+{
+  "total_properties": 4090,
+  "avg_price": 559822.13,
+  "avg_sqft": 2136.26,
+  "price_range": { "min": 80000.0, "max": 26590000.0, "median": 464600.0 }
+}
+```
+
+---
+
+### GET `/requirements` (admin)
+
+All saved user requirements, including users' contact details.
+
 ```bash
-curl -X POST http://localhost:5000/audio/transcribe \
-  -F "audio=@recording.wav"
+curl -u admin:$ADMIN_PASSWORD http://localhost:7860/requirements
 ```
 
-**Response:**
-```json
-{
-  "text": "I need a three bedroom house under five hundred thousand dollars",
-  "language": "en",
-  "duration": 3.5,
-  "confidence": 0.95,
-  "timestamp": "2024-11-22T10:30:00Z"
-}
-```
+**Response** `200` (missing values are `null`)
 
-**Error Response:**
-```json
-{
-  "error": "AudioProcessingError",
-  "message": "Unsupported audio format",
-  "supported_formats": ["wav", "mp3", "m4a", "webm", "flac"]
-}
-```
-
----
-
-### 3. Text-to-Speech Endpoint
-
-**POST** `/audio/tts`
-
-Convert text to speech using OpenAI TTS.
-
-**Request Body:**
-```json
-{
-  "text": "I found 3 properties that match your requirements",
-  "voice": "alloy",
-  "speed": 1.0
-}
-```
-
-**Parameters:**
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| text | string | Yes | - | Text to convert |
-| voice | string | No | alloy | Voice selection |
-| speed | float | No | 1.0 | Speech speed (0.25-4.0) |
-
-**Available Voices:**
-- `alloy` - Neutral and balanced
-- `echo` - Male, clear
-- `fable` - British accent
-- `onyx` - Deep male
-- `nova` - Female, warm
-- `shimmer` - Female, bright
-
-**Response:**
-```json
-{
-  "audio": "base64_encoded_audio_data",
-  "format": "mp3",
-  "duration": 2.3,
-  "size_bytes": 45678,
-  "timestamp": "2024-11-22T10:30:00Z"
-}
-```
-
-**cURL Example:**
-```bash
-curl -X POST http://localhost:5000/audio/tts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Hello, how can I help you?",
-    "voice": "nova"
-  }' \
-  --output response.json
-```
-
----
-
-### 4. System Status Endpoint
-
-**GET** `/status`
-
-Check system health and configuration.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "uptime_seconds": 86400,
-  "components": {
-    "openai_api": {
-      "status": "connected",
-      "latency_ms": 150
-    },
-    "vector_db": {
-      "status": "operational",
-      "index_size": 5000,
-      "dimension": 1536
-    },
-    "audio_service": {
-      "status": "operational"
-    }
-  },
-  "configuration": {
-    "model": "gpt-3.5-turbo",
-    "embedding_model": "text-embedding-ada-002",
-    "max_properties": 10
-  },
-  "timestamp": "2024-11-22T10:30:00Z"
-}
-```
-
----
-
-### 5. Property Summary Endpoint
-
-**GET** `/property_summary`
-
-Get statistics about the property database.
-
-**Response:**
-```json
-{
-  "total_properties": 5000,
-  "price_range": {
-    "min": 150000,
-    "max": 2500000,
-    "average": 650000,
-    "median": 550000
-  },
-  "bedrooms": {
-    "min": 1,
-    "max": 6,
-    "distribution": {
-      "1": 250,
-      "2": 1500,
-      "3": 2000,
-      "4": 1000,
-      "5+": 250
-    }
-  },
-  "locations": {
-    "downtown": 1200,
-    "suburbs": 2800,
-    "waterfront": 500,
-    "rural": 500
-  },
-  "last_updated": "2024-11-20T00:00:00Z"
-}
-```
-
----
-
-### 6. User Requirements Endpoint
-
-**GET** `/requirements`
-
-Retrieve saved user requirements.
-
-**Query Parameters:**
-- `user_id` (optional): Filter by user ID
-- `limit` (optional): Number of results (default: 10)
-- `offset` (optional): Pagination offset (default: 0)
-
-**Response:**
 ```json
 {
   "requirements": [
     {
-      "requirement_id": "req_001",
-      "user_id": "user_abc",
-      "budget": 500000,
-      "bedrooms": 3,
-      "bathrooms": 2,
-      "location": "downtown",
-      "sqft_min": 1500,
-      "email": "user@example.com",
-      "phone": "+1234567890",
-      "created_at": "2024-11-22T10:00:00Z",
-      "updated_at": "2024-11-22T10:30:00Z"
+      "timestamp": "2026-05-22 16:13:03",
+      "user_id": "882bda45",
+      "email": null,
+      "whatsapp": "01305354567",
+      "price_min": 300000.0,
+      "bedrooms": 2.0,
+      "bathrooms": null,
+      "sqft_living": null,
+      "location": "Seattle",
+      "property_type": null,
+      "specific_requirements": null
     }
-  ],
-  "total": 1,
-  "limit": 10,
-  "offset": 0
+  ]
 }
 ```
+
+**Errors:** `401`, `404` (disabled, or no data saved yet), `500`.
 
 ---
 
-### 7. Property Search Endpoint
+### GET / POST `/api-@dmin` (admin)
 
-**POST** `/search/properties`
-
-Search for properties based on criteria.
-
-**Request Body:**
-```json
-{
-  "budget": 500000,
-  "bedrooms": 3,
-  "bathrooms": 2,
-  "sqft_min": 1500,
-  "sqft_max": 2500,
-  "location": "downtown",
-  "search_type": "exact",
-  "limit": 10
-}
-```
-
-**Parameters:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| budget | integer | No | Maximum budget |
-| bedrooms | integer | No | Number of bedrooms |
-| bathrooms | float | No | Number of bathrooms |
-| sqft_min | integer | No | Minimum square footage |
-| sqft_max | integer | No | Maximum square footage |
-| location | string | No | Location/area |
-| search_type | string | No | "exact" or "similar" |
-| limit | integer | No | Max results (default: 10) |
-
-**Response:**
-```json
-{
-  "properties": [
-    {
-      "property_id": "prop_001",
-      "price": 485000,
-      "bedrooms": 3,
-      "bathrooms": 2,
-      "sqft_living": 1800,
-      "yr_built": 1995,
-      "condition": 4,
-      "view": 3,
-      "waterfront": false,
-      "yr_renovated": 2010,
-      "location": "Downtown",
-      "match_score": 0.95,
-      "match_type": "exact"
-    }
-  ],
-  "total_found": 15,
-  "returned": 10,
-  "search_criteria": {
-    "budget": 500000,
-    "bedrooms": 3
-  },
-  "execution_time_ms": 45
-}
-```
-
----
-
-### 8. Save Requirements Endpoint
-
-**POST** `/requirements`
-
-Save user requirements for follow-up.
-
-**Request Body:**
-```json
-{
-  "user_id": "user_abc",
-  "budget": 500000,
-  "bedrooms": 3,
-  "bathrooms": 2,
-  "location": "downtown",
-  "contact": {
-    "email": "user@example.com",
-    "phone": "+1234567890",
-    "whatsapp": "+1234567890"
-  },
-  "preferences": {
-    "garage": true,
-    "pool": false,
-    "garden": true
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "requirement_id": "req_001",
-  "status": "saved",
-  "message": "Requirements saved successfully",
-  "timestamp": "2024-11-22T10:30:00Z"
-}
-```
-
-## WebSocket Support
-
-### Connection
-
-```javascript
-const ws = new WebSocket('ws://localhost:5000/ws/conversation');
-
-ws.onopen = () => {
-  console.log('Connected');
-  ws.send(JSON.stringify({
-    action: 'start',
-    user_id: 'user_123'
-  }));
-};
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Response:', data);
-};
-```
-
-### Messages
-
-**Send Message:**
-```json
-{
-  "action": "message",
-  "text": "Show me 3 bedroom houses",
-  "conversation_id": "conv_123"
-}
-```
-
-**Receive Response:**
-```json
-{
-  "type": "response",
-  "text": "I found 3 properties...",
-  "properties": [],
-  "timestamp": "2024-11-22T10:30:00Z"
-}
-```
+HTML admin panel. `GET` shows the form and the last 4 characters of the current OpenAI key. `POST` with form
+field `api_key` (must look like an OpenAI key, `sk-…`) saves it to `.env` and restarts the app. Open it in a
+browser; it will prompt for the admin login.
 
 ## Examples
 
-### Complete Conversation Flow
+### Python: a two-turn conversation
 
-```javascript
-// 1. Start conversation
-const response1 = await fetch('/ask', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: "I'm looking for a house",
-    conversation_id: "conv_123"
-  })
-});
-
-// 2. Provide requirements
-const response2 = await fetch('/ask', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: "3 bedrooms under $500,000",
-    conversation_id: "conv_123"
-  })
-});
-
-// 3. View properties
-const properties = await response2.json();
-
-// 4. Save requirements
-await fetch('/requirements', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    budget: 500000,
-    bedrooms: 3,
-    contact: {
-      email: "user@example.com"
-    }
-  })
-});
-```
-
-### Voice Interaction Flow
-
-```javascript
-// 1. Record audio
-const audioBlob = await recordAudio();
-
-// 2. Transcribe
-const formData = new FormData();
-formData.append('audio', audioBlob);
-
-const transcription = await fetch('/audio/transcribe', {
-  method: 'POST',
-  body: formData
-});
-
-const { text } = await transcription.json();
-
-// 3. Send to agent
-const response = await fetch('/ask', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ message: text })
-});
-
-// 4. Convert response to speech
-const agentResponse = await response.json();
-const tts = await fetch('/audio/tts', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ text: agentResponse.response })
-});
-
-const { audio } = await tts.json();
-playAudio(audio);
-```
-
-## SDK Examples
-
-### Python
 ```python
+import json
 import requests
 
-class RealEstateClient:
-    def __init__(self, base_url):
-        self.base_url = base_url
-    
-    def ask(self, message, conversation_id=None):
-        response = requests.post(
-            f"{self.base_url}/ask",
-            json={
-                "message": message,
-                "conversation_id": conversation_id
-            }
-        )
-        return response.json()
+BASE = "http://localhost:7860"
+history = []
 
-# Usage
-client = RealEstateClient("http://localhost:5000")
-result = client.ask("Show me 3 bedroom houses")
-print(result)
+def ask(query):
+    reply = requests.post(f"{BASE}/ask", json={"query": query, "chat_history": history}, timeout=60).json()
+    history.extend([
+        {"role": "user", "content": query},
+        {"role": "assistant", "content": reply["answer"]},
+        {"role": "system", "content": json.dumps(reply["system_state"])},
+    ])
+    return reply["answer"]
+
+print(ask("I want a 3 bedroom house in Seattle under 600000"))
+print(ask("Tell me more about the first one"))
 ```
 
-### JavaScript/Node.js
+### JavaScript: speak a reply
+
 ```javascript
-class RealEstateClient {
-  constructor(baseURL) {
-    this.baseURL = baseURL;
-  }
-  
-  async ask(message, conversationId) {
-    const response = await fetch(`${this.baseURL}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        conversation_id: conversationId
-      })
-    });
-    return response.json();
-  }
+const res = await fetch("/audio/tts", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ text: "Here are three homes that match." }),
+});
+if (res.ok) {
+  const { audio, mime_type } = await res.json();
+  new Audio(`data:${mime_type};base64,${audio}`).play();
 }
-
-// Usage
-const client = new RealEstateClient('http://localhost:5000');
-const result = await client.ask('Show me 3 bedroom houses');
-console.log(result);
 ```
-
----
-
-**API Version:** 1.0  
-**Support:** saifulislamsayem19@gmail.com

@@ -122,9 +122,12 @@ Create a `.env` file in the project root directory:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
-VECTOR_DB_PATH=./vector_store
-USER_DATA_PATH=./user_requirements.csv
+GROQ_API_KEY=your_groq_api_key_here   # optional fallback
 ```
+
+If the OpenAI key is missing, invalid or out of quota, the app falls back automatically: chat and voice use [Groq](https://console.groq.com/keys) (`openai/gpt-oss-120b`, `whisper-large-v3-turbo`, `canopylabs/orpheus-v1-english`), and the property index is built with a local embedding model (`BAAI/bge-small-en-v1.5`, downloaded on first use), because Groq has no embeddings API. Check `GET /status` to see which providers are active.
+
+See `.env.example` for optional settings (models, port, temperature).
 
 ### Running the Application
 
@@ -161,7 +164,7 @@ http://localhost:5000
 
 | Endpoint              | Method | Description                       |
 | --------------------- | ------ | --------------------------------- |
-| `/requirements`     | GET    | Retrieve saved user requirements  |
+| `/requirements`     | GET    | Saved user requirements (admin login required) |
 | `/property_summary` | GET    | View property portfolio analytics |
 
 ## Core Functionality
@@ -201,9 +204,10 @@ Create a `.env` file with the following configuration variables:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key
-VECTOR_DB_PATH=./vector_store
-USER_DATA_PATH=./user_requirements.csv
+GROQ_API_KEY=your_groq_api_key   # optional fallback
 ```
+
+Optional overrides are listed in `.env.example`. The vector index (`vector_db/`) and saved user requirements (`user_data/`) are stored in fixed folders under the project root.
 
 ### Property Data Format
 
@@ -245,7 +249,7 @@ The system provides robust speech recognition capabilities:
 Advanced voice synthesis features include:
 
 - Natural-sounding speech generation with human-like prosody
-- Multiple voice personas (alloy, echo, fable, onyx, nova, shimmer)
+- Configurable voices (OpenAI `marin` by default; Groq `hannah` when falling back)
 - Adjustable speech rate and tone parameters
 - Base64-encoded audio streaming for web playback
 - CORS-compliant audio delivery

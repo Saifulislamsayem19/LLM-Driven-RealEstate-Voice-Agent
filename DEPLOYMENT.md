@@ -114,10 +114,23 @@ sudo systemctl status real-estate
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| OPENAI_API_KEY | OpenAI API key (required) | - |
-| MODEL_NAME | LLM model to use | gpt-3.5-turbo-16k |
-| TEMPERATURE | Model temperature | 0.3 |
-| DEBUG | Enable debug mode | False |
+| OPENAI_API_KEY | OpenAI API key (primary provider) | - |
+| OPENAI_CHAT_MODEL | OpenAI chat model | gpt-6-luna |
+| OPENAI_REASONING_EFFORT | Reasoning effort for OpenAI reasoning models (empty = use LLM_TEMPERATURE) | low |
+| GROQ_API_KEY | Groq API key, used when OpenAI is missing/invalid/out of quota | - |
+| GROQ_CHAT_MODEL | Groq chat model | openai/gpt-oss-120b |
+| GROQ_REASONING_EFFORT | gpt-oss reasoning effort (low/medium/high) | low |
+| GROQ_STT_MODEL | Groq speech-to-text model | whisper-large-v3-turbo |
+| GROQ_TTS_MODEL / GROQ_TTS_VOICE | Groq text-to-speech | canopylabs/orpheus-v1-english / hannah |
+| LOCAL_EMBEDDING_MODEL | Embeddings used when OpenAI is unavailable | BAAI/bge-small-en-v1.5 |
+| LLM_TEMPERATURE | Model temperature | 0.3 |
+| ADMIN_USERNAME / ADMIN_PASSWORD | Login for `/api-@dmin` and `/requirements`; both are disabled while the password is empty | admin / (empty) |
+| RATE_LIMIT_CHAT_PER_MINUTE | `/ask` requests per client IP per minute (0 = off) | 20 |
+| RATE_LIMIT_AUDIO_PER_MINUTE | `/audio/*` requests per client IP per minute (0 = off) | 20 |
+| DAILY_CHAT_LIMIT_PER_IP | Messages per client IP per day that reach the AI (0 = off) | 150 |
+| DAILY_CHAT_LIMIT_GLOBAL | Messages per day, all visitors combined, that reach the AI (0 = off) | 3000 |
+| JAILBREAK_STRIKE_LIMIT / JAILBREAK_LOCKOUT_MINUTES | Jailbreak attempts allowed before a visitor is locked out, and for how long (0 = off) | 5 / 15 |
+| ALLOWED_ORIGINS | Extra origins allowed to call the API cross-site (JSON list) | [] |
 | HOST | Server host | 0.0.0.0 |
 | PORT | Server port | 7860 |
 | LOG_LEVEL | Logging level | INFO |
