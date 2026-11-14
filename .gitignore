@@ -30,6 +30,7 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+.vscode/
 
 # User-submitted data (contains contact details)
 user_data/
