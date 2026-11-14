@@ -30,3 +30,12 @@ def test_convert_numpy_types_nested():
     data = {"price": np.int64(500000), "scores": [np.float64(4.5), np.float64(3.0)]}
     result = convert_numpy_types(data)
     assert result == {"price": 500000, "scores": [4.5, 3.0]}
+
+
+def test_convert_numpy_types_nan_becomes_none():
+    import numpy as np
+    from app.utils.data_manager import convert_numpy_types
+
+    data = {"a": np.float64("nan"), "b": float("nan"), "c": np.float64("inf"), "d": 1.5}
+    assert convert_numpy_types(data) == {"a": None, "b": None, "c": None, "d": 1.5}
+

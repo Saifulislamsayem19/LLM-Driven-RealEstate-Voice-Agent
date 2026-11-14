@@ -7,6 +7,7 @@ Only configuration references updated to use settings.
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import time
 import uuid
@@ -26,11 +27,15 @@ from app.core.config import settings
 # ── Type conversion helper ────────────────────────────────────────────────────
 
 def convert_numpy_types(obj: Any) -> Any:
-    """Recursively convert numpy / pandas types to Python-native types."""
+    """Recursively convert numpy / pandas types to Python-native types.
+
+    NaN / inf become None, since they are not valid JSON.
+    """
     if isinstance(obj, (np.integer, np.int64, np.int32)):
         return int(obj)
-    if isinstance(obj, (np.floating, np.float64, np.float32)):
-        return float(obj)
+    if isinstance(obj, (float, np.floating)):
+        obj = float(obj)
+        return obj if math.isfinite(obj) else None
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, pd.Timestamp):

@@ -55,7 +55,7 @@ async def view_requirements():
         raise HTTPException(status_code=404, detail="No requirements data available")
     try:
         df = pd.read_csv(req_file)
-        return {"requirements": df.to_dict(orient="records")}
+        return {"requirements": convert_numpy_types(df.to_dict(orient="records"))}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error reading requirements data: {exc}")
 
