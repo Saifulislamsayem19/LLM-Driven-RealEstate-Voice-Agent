@@ -8,6 +8,22 @@ from app.utils.data_manager import load_and_preprocess_data, setup_vector_db, sa
 from app.models.schemas import AgentState
 from app.services.providers import get_chat_model
 
+_PHONE_CANDIDATE = re.compile(r'\+?\(?\d[\d\s\-\.\(\)]{5,20}\d')
+_NOT_PHONE_SUFFIX = re.compile(r'\s*(?:k|m|million|sq|sqft|square|usd|dollars?)\b', re.IGNORECASE)
+
+
+def extract_phone_number(text: str) -> Optional[str]:
+    """Return the first phone-like number (8-15 digits), skipping prices and sizes."""
+    for match in _PHONE_CANDIDATE.finditer(text):
+        digits = re.sub(r'\D', '', match.group(0))
+        if not 8 <= len(digits) <= 15:
+            continue
+        if text[:match.start()].rstrip().endswith('$') or _NOT_PHONE_SUFFIX.match(text, match.end()):
+            continue
+        return match.group(0).strip()
+    return None
+
+
 class RealEstateAgent:
     def __init__(self):
         self.df = None
@@ -715,11 +731,10 @@ class RealEstateAgent:
                 if email_match:
                     state["contact_info"]["email"] = email_match.group(0)
                 
-                # Extract WhatsApp/phone number using regex
-                phone_pattern = r'(?:\+?\d{1,4}[\s\-\.])?(?:\(?\d{2,5}\)?)[\s\-\.]?\d{2,5}[\s\-\.]?\d{2,5}(?:[\s\-\.]?\d{1,5})?'
-                phone_match = re.search(phone_pattern, query)
-                if phone_match:
-                    state["contact_info"]["whatsapp"] = phone_match.group(0)
+                # Extract WhatsApp/phone number (budgets and sizes are not phone numbers)
+                phone = extract_phone_number(query)
+                if phone:
+                    state["contact_info"]["whatsapp"] = phone
                 
                 return state
   
