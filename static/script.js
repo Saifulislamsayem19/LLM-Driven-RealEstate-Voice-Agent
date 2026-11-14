@@ -432,19 +432,26 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add assistant response
             addMessage(data.answer, 'assistant', responseTimeStr);
             
-            // Play TTS response if enabled
-            if (ttsEnabled) {
-                // Extract plain text from markdown for better TTS
-                const plainText = stripMarkdown(data.answer);
-                playTTS(plainText);
+            // Refused messages (off-topic / jailbreak) are fixed replies: no speech synthesis, and
+            // they stay out of the history so the conversation state is not disturbed
+            if (!data.blocked) {
+                // Play TTS response if enabled
+                if (ttsEnabled) {
+                    // Extract plain text from markdown for better TTS
+                    const plainText = stripMarkdown(data.answer);
+                    playTTS(plainText);
+                }
+
+                // Update chat history with both messages
+                const entries = [
+                    { role: 'user', content: message },
+                    { role: 'assistant', content: data.answer }
+                ];
+                if (data.system_state) {
+                    entries.push({ role: 'system', content: JSON.stringify(data.system_state) });
+                }
+                chatHistory.push(...entries);
             }
-            
-            // Update chat history with both messages
-            chatHistory.push(
-                { role: 'user', content: message },
-                { role: 'assistant', content: data.answer },
-                { role: 'system', content: JSON.stringify(data.system_state) }
-            );
             
             // Reset processing state
             isProcessing = false;

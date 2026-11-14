@@ -8,10 +8,24 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.core.security import abuse_guard, chat_rate_limit
 from app.services.agent import agent
+from app.services.guardrails import check_query
 from app.utils.data_manager import convert_numpy_types
 from app.services.query_processor import process_query
 
 router = APIRouter(tags=["chat"])
+
+_places_cache: tuple[int, frozenset[str]] = (-1, frozenset())
+
+
+def _known_places() -> frozenset[str]:
+    """Lower-cased city names from the dataset, so "Anything in Kent?" counts as on-topic."""
+    global _places_cache
+    df = agent.df
+    if df is None or "city" not in df.columns:
+        return frozenset()
+    if _places_cache[0] != id(df):
+        _places_cache = (id(df), frozenset(str(c).lower() for c in df["city"].dropna().unique()))
+    return _places_cache[1]
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -46,6 +60,25 @@ async def ask(request: Request):
 
     if not query:
         return JSONResponse(content={"answer": "Welcome to our real estate assistant! How can I help you today?"})
+
+    client = abuse_guard.client_key(request)
+    abuse_guard.check_not_locked(client)
+
+    # Off-topic questions and jailbreak attempts are answered here, without calling the LLM
+    verdict = check_query(
+        query,
+        in_conversation=any(m["role"] == "assistant" for m in chat_history),
+        places=_known_places(),
+    )
+    if not verdict.allowed:
+        if verdict.reason == "jailbreak":
+            abuse_guard.record_strike(client)
+        print(f"/ask refused ({verdict.reason})")
+        # No system_state: the client keeps the previous one, so the conversation isn't disturbed
+        return JSONResponse(content={"answer": verdict.reply, "blocked": verdict.reason})
+
+    abuse_guard.check_quota(client)
+    abuse_guard.record_llm_call(client)
 
     try:
         # LLM calls block; run them off the event loop so other requests aren't stalled
