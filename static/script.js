@@ -41,122 +41,174 @@ document.addEventListener('DOMContentLoaded', function() {
     let chatHistory = [];
     let isProcessing = false;
     
-    // Voice recognition variables
-    let recognition = null;
+    // Voice input: record in the browser and transcribe on our server (/audio/transcribe).
+    // Works in every modern browser (incl. Firefox), and audio only goes to the app's own speech provider.
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let discardRecording = false;
+    let isStartingRecording = false;
     let isRecognizing = false;
+    let silenceMonitor = null;
     let audioPlayer = new Audio();
     let ttsEnabled = true;
     let accumulatedTranscript = '';
-    let silenceTimeout = null;   
     let userFocusedInput = false;
-    const SILENCE_DELAY = 10000;
-    
-    // Initialize speech recognition if available
-    function initSpeechRecognition() {
-        if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
+    const SILENCE_DELAY = 10000;       // stop if nothing is said for this long
+    const END_OF_SPEECH_DELAY = 1500;  // stop this long after the speaker pauses
+    const MAX_RECORDING_MS = 60000;
+    const SPEECH_LEVEL = 0.02;         // RMS level that counts as speech
 
-            recognition.onstart = function() {
-                isRecognizing = true;
-                voiceButton.classList.add('recording');
-                voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
-                updateStatus('Listening...', 'processing');
-                clearTimeout(silenceTimeout);
-                silenceTimeout = setTimeout(stopRecognition, SILENCE_DELAY);
-            };
+    function pickRecordingType() {
+        const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+        return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+    }
 
-            recognition.onresult = function(event) {
-                clearTimeout(silenceTimeout);
+    function setRecordingUI(active) {
+        voiceButton.classList.toggle('recording', active);
+        voiceButton.innerHTML = active ? '<i class="fas fa-stop"></i>' : '<i class="fas fa-microphone"></i>';
+        voiceButton.setAttribute('aria-label', active ? 'Stop recording' : 'Voice input');
+        if (active) updateStatus('Listening...', 'processing');
+    }
 
-                let interim = '';
-                let final = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const t = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) final += t;
-                    else interim += t;
-                }
-
-                // Prepend whatever was typed/spoken before this session started
-                const prefix = accumulatedTranscript ? accumulatedTranscript + ' ' : '';
-                userInput.value = prefix + (final || interim);
-
-                // Lock in final words so next interim doesn't erase them
-                if (final) {
-                    accumulatedTranscript = (prefix + final).trim();
-                }
-
-                userInput.dispatchEvent(new Event('input'));
-                silenceTimeout = setTimeout(stopRecognition, SILENCE_DELAY);
-            };
-
-            recognition.onerror = function(event) {
-                console.error('Speech recognition error:', event.error);
-                clearTimeout(silenceTimeout);
-                isRecognizing = false;
-                voiceButton.classList.remove('recording');
-                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-                updateStatus('Online', 'online');
-            };
-
-            recognition.onend = function() {
-                clearTimeout(silenceTimeout);
-                isRecognizing = false;
-                voiceButton.classList.remove('recording');
-                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-                updateStatus('Online', 'online');
-
-                if (userInput.value.trim() && !userFocusedInput) {  // ← only auto-send if user didn't click in
-                    sendMessage();
-                }
-                userFocusedInput = false;  // ← reset for next session
-            };
-
-            return true;
+    async function startRecognition() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+            alert('Voice input is not supported in this browser.');
+            return;
         }
-        return false;
+        isStartingRecording = true;
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        } catch (e) {
+            console.error('Microphone error:', e);
+            alert('Microphone access is blocked. Allow it in your browser settings to use voice input.');
+            return;
+        } finally {
+            isStartingRecording = false;
+        }
+
+        const mimeType = pickRecordingType();
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        mediaRecorder = recorder;
+        audioChunks = [];
+        discardRecording = false;
+
+        recorder.ondataavailable = e => {
+            if (e.data && e.data.size) audioChunks.push(e.data);
+        };
+        recorder.onstop = () => {
+            stream.getTracks().forEach(track => track.stop());
+            stopSilenceMonitor();
+            isRecognizing = false;
+            setRecordingUI(false);
+
+            const blob = new Blob(audioChunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+            if (discardRecording || blob.size === 0) {
+                updateStatus('Online', 'online');
+                userFocusedInput = false;
+                return;
+            }
+            transcribeRecording(blob);
+        };
+
+        recorder.start();
+        isRecognizing = true;
+        setRecordingUI(true);
+        startSilenceMonitor(stream);
+    }
+
+    // Stop automatically when the speaker pauses, nobody speaks, or the recording gets too long
+    function startSilenceMonitor(stream) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const startedAt = Date.now();
+        let lastSoundAt = startedAt;
+        let heardSpeech = false;
+        let ctx = null, analyser = null, samples = null;
+
+        if (AudioCtx) {
+            ctx = new AudioCtx();
+            analyser = ctx.createAnalyser();
+            analyser.fftSize = 1024;
+            ctx.createMediaStreamSource(stream).connect(analyser);
+            samples = new Uint8Array(analyser.fftSize);
+        }
+
+        const timer = setInterval(() => {
+            const now = Date.now();
+            if (analyser) {
+                analyser.getByteTimeDomainData(samples);
+                let sum = 0;
+                for (const v of samples) {
+                    const x = (v - 128) / 128;
+                    sum += x * x;
+                }
+                if (Math.sqrt(sum / samples.length) > SPEECH_LEVEL) {
+                    lastSoundAt = now;
+                    heardSpeech = true;
+                }
+            }
+            if ((heardSpeech && now - lastSoundAt > END_OF_SPEECH_DELAY) ||
+                (!heardSpeech && now - startedAt > SILENCE_DELAY) ||
+                now - startedAt > MAX_RECORDING_MS) {
+                stopRecognition();
+            }
+        }, 100);
+
+        silenceMonitor = { timer, ctx };
+    }
+
+    function stopSilenceMonitor() {
+        if (!silenceMonitor) return;
+        clearInterval(silenceMonitor.timer);
+        if (silenceMonitor.ctx) silenceMonitor.ctx.close();
+        silenceMonitor = null;
+    }
+
+    async function transcribeRecording(blob) {
+        updateStatus('Transcribing...', 'processing');
+        const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+        const form = new FormData();
+        form.append('audio_file', blob, `speech.${ext}`);
+
+        try {
+            const response = await fetch('/audio/transcribe', { method: 'POST', body: form });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Transcription failed');
+
+            const text = (data.text || '').trim();
+            // Keep whatever was typed before recording started
+            const prefix = accumulatedTranscript ? accumulatedTranscript + ' ' : '';
+            userInput.value = (prefix + text).trim();
+            userInput.dispatchEvent(new Event('input'));
+            updateStatus('Online', 'online');
+
+            if (text && !userFocusedInput) {  // only auto-send if the user didn't click into the box
+                sendMessage();
+            }
+        } catch (e) {
+            console.error('Transcription error:', e);
+            updateStatus('Voice input failed', 'error');
+        } finally {
+            userFocusedInput = false;
+        }
     }
 
     function toggleSpeechRecognition() {
-        if (!recognition) {
-            if (!initSpeechRecognition()) {
-                alert('Speech recognition is not supported in this browser.');
-                return;
-            }
-        }
+        if (isStartingRecording) return;
         if (isRecognizing) {
             stopRecognition();
         } else {
-            stopAudio();                                  // ← abort TTS before listening
-            accumulatedTranscript = userInput.value.trim(); // ← preserve existing text
+            stopAudio();                                    // abort TTS before listening
+            accumulatedTranscript = userInput.value.trim(); // preserve existing text
             startRecognition();
         }
     }
 
-    function startRecognition() {
-        try {
-            recognition.start();
-        } catch (e) {
-            console.error('Recognition error:', e);
-            // Try to reinitialize
-            recognition = null;
-            initSpeechRecognition();
-            try {
-                recognition.start();
-            } catch (e) {
-                console.error('Failed to restart recognition:', e);
-                alert('Failed to start speech recognition. Please try again.');
-            }
-        }
-    }
-
-    function stopRecognition() {
-        clearTimeout(silenceTimeout);    // ← now works because silenceTimeout is in scope
-        if (recognition && isRecognizing) {
-            recognition.stop();          // triggers onend which resets UI flags
+    // discard=true stops without transcribing (e.g. the user pressed Send meanwhile)
+    function stopRecognition(discard = false) {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            discardRecording = discard;
+            mediaRecorder.stop();  // triggers onstop, which resets the UI and transcribes
         }
     }
     
@@ -324,8 +376,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (message === '' || isProcessing) return;
         
-        // Stop any current voice recording
-        stopRecognition();
+        // Stop any current voice recording without transcribing it
+        stopRecognition(true);
         
         // Stop any current audio playback
         stopAudio();
