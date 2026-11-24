@@ -22,4 +22,5 @@ class AgentState(TypedDict):
     similar_matches: List[Dict[str, Any]]
     needs_contact_info: bool
     no_properties_found: bool
+    requirements_saved: bool
     selected_property_id: Optional[int]  

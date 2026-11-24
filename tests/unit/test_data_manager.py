@@ -52,3 +52,43 @@ def test_extract_phone_number_ignores_budgets(text, expected):
     from app.services.agent import extract_phone_number
 
     assert extract_phone_number(text) == expected
+
+
+def test_requirements_saved_prevents_duplicate_leads_on_subsequent_turns(tmp_path, monkeypatch):
+    import json
+    import pandas as pd
+    from unittest.mock import MagicMock, patch
+    from langchain_core.messages import AIMessage
+    from app.services.agent import RealEstateAgent
+    from app.services.query_processor import process_query
+    from app.core.config import settings
+
+    csv = tmp_path / "user_requirements.csv"
+    monkeypatch.setattr(type(settings), "USER_REQUIREMENTS_FILE", property(lambda self: csv))
+
+    agent = RealEstateAgent()
+    agent.df = pd.DataFrame([{
+        "property_id": 1, "price": 500000.0, "city": "Seattle",
+        "bedrooms": 3, "bathrooms": 2, "sqft_living": 1500
+    }])
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value = AIMessage(content='{"budget": 500000, "location": "Seattle"}')
+
+    with patch("app.services.agent.get_chat_model", return_value=mock_llm):
+        agent.setup_chain()
+
+    # Turn 1: User provides requirements and contact info
+    res1 = process_query(agent, "budget 500k in Seattle, email jane@example.com", [])
+    assert res1["system_state"]["requirements_saved"] is True
+    assert len(pd.read_csv(csv)) == 1
+
+    # Turn 2: User asks a follow-up question in the same chat
+    history = [
+        {"role": "user", "content": "budget 500k in Seattle, email jane@example.com"},
+        {"role": "assistant", "content": res1["answer"]},
+        {"role": "system", "content": json.dumps(res1["system_state"])},
+    ]
+    res2 = process_query(agent, "tell me more about property 1", history)
+    assert res2["system_state"]["requirements_saved"] is True
+    assert len(pd.read_csv(csv)) == 1
+
