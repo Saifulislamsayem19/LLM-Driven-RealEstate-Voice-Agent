@@ -79,7 +79,7 @@ def process_query(
                 "similar_matches": result.get("similar_matches", []),
                 "needs_contact_info": result.get("needs_contact_info", False),
                 "no_properties_found": result.get("no_properties_found", False),
-                "requirements_saved": result.get("requirements_saved", False),
+                "requirements_saved": result.get("requirements_saved", state.get("requirements_saved", False)),
                 "selected_property_id": result.get("selected_property_id", None)
             }
         }
